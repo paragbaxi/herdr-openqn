@@ -1,0 +1,5 @@
+node_modules/
+.DS_Store
+*.before-*
+herdr-app/mods/*/gpui-kit.d.ts
+herdr-app/mods/*/jsconfig.json

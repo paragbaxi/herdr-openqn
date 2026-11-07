@@ -1,0 +1,173 @@
+# Asks: decisions waiting on you
+
+A right-hand panel in the Herdr desktop app listing every dialog an agent in the shown space
+is waiting on, as a card you answer from there, plus an `Asks` button with a count in the tab
+bar. Answers are pressed into the agent's terminal through `hc`.
+
+![Asks](preview.png)
+
+## What you see
+
+- In the tab bar, left of `Files`: a 26 px button, speech-bubble icon (`mods/tabs-asks/asks.svg`)
+  and the words `Open questions` (the `label` setting), styled like the Files and Changes buttons (`t.selected` when its panel
+  shows). When asks wait in the shown space, a 16 px red pill (`theme().blocked` on
+  `theme().background`, 10.5 px semibold) with the count; when only other spaces have some, dim
+  text `+N` or `N elsewhere`.
+- The panel is a child of the layout's existing `panel-body` stack, so it opens where Files
+  opens, at the same width (368 px, min 280, max 900 in `main`), and is hidden by default.
+  Rounded 10 px card, `t.background`, 1 px `t.border`, like Files.
+- Header, 42 px: `Open questions` semibold; the space name right-aligned in `t.dim` (or `All spaces`);
+  a 20 px `All` toggle chip.
+- A dim line: `N waiting · M answered today`.
+- Cards, 12 px padding, `t.surface`, 10 px radius, 8 px apart, newest first:
+  1. the agent's program icon (16 px), its sidebar name semibold, the space name when `All` is on,
+     a spinner while sending, the age (`<1m`, `3m`, `2h`).
+  2. a kind chip, 16 px, 10 px semibold uppercase on a colour: `APPROVAL` on `t.blocked`,
+     `DECISION` on `t.accent`, `QUESTION` on `t.working`, `UNCLEAR` on `t.dim`; then the context
+     line (the agent's last prose line this turn) in `t.dim`, truncated.
+  3. the question, 13 px, wrapping.
+  4. one row per option: an 18 px number badge, the label verbatim (truncated, full text in the
+     tooltip), `recommends` in `t.accent` on the option the agent recommended (its border is
+     `t.accent` too), and the option's description under it in `t.dim`.
+  5. actions, 26 px: `Other answer` (toggles a text input; Enter sends), `Open terminal`, and
+     `Dismiss` at the right. A failed card shows the error in `t.blocked` and a `Retry` button.
+- Under the cards, a foldable `Answered N` list: one 26 px row per answered, stale or failed
+  ask: a check (or x), the agent, `→ answer` or the note (`Resolved in terminal`, `Agent
+  closed`), the age. Clicking a row focuses that agent.
+- Empty: `No open questions in <space>. Agents show up here when they stop to ask you something.`
+
+## How it behaves
+
+- An ask appears within two seconds of an agent turning `blocked` (sooner if something
+  redraws the tab bar). Its identity is `address:turn:hash(report msg)`, so the same dialog is
+  never listed twice and a new dialog from the same agent replaces the old card (old one:
+  `Resolved in terminal`).
+- Claude Code's status report is the source of truth: `kind: question`, `msg: "answer: <question>
+  (<opt> · <opt> · …)"` gives a `DECISION` with verbatim options, the one containing
+  `(Recommended)` marked; `kind: permission`, `msg: "approve <Tool>: <target>"` gives an
+  `APPROVAL` whose options (`Yes`, `Yes, and …`, `No`) come from the screen. Right after, the
+  screen (`hc read <t> --json`) is read for option numbers, descriptions, the question line above
+  a permission prompt, and the context line.
+- Finished turns: every `done` or `idle` turn is checked once (`address:p:turn`, remembered in
+  the shared state's `checked`, the first pass skipping turns already idle). The agent's words
+  since the person's last `❯` prompt are taken (tool lines and the `✻ … done` footer dropped);
+  with a `?` in them, `claude -p` (`mode: message`) says whether the agent is waiting on the
+  person (`asks`), the main question (`(+N more)` for several), any options it laid out, and a
+  context line. `asks` true and confidence ≥ 0.6 make a `QUESTION` card with `delivery: "send"`.
+  It stays open while the agent is idle or done on that same turn; a new turn (the person
+  answered in the terminal) makes it `Answered in terminal`.
+- Other agents: numbered options on screen (`1.`, `❯ 2.` …) make a `DECISION` (`APPROVAL` when a
+  `Yes` and a `No` are among them). With none, and `classify` not `off`, `claude -p
+  --output-format json --json-schema … --model haiku` classifies the last 45 lines; its options
+  must all appear verbatim on screen and confidence must be ≥ 0.6, else the card is `UNCLEAR`
+  with `Open terminal` only.
+- Clicking an option: first `terminals()` is checked (still live, still `blocked`, same report
+  msg), else the card becomes `Resolved in terminal`. Then `hc keys <t> <n>`; after 0.9 s, if
+  `hc get` still shows the same dialog, `hc keys <t> enter`; after 1.5 s more, still the same
+  dialog means `failed` ("The agent did not accept the answer") with Retry. Claude Code selects
+  on the number alone.
+- On a `delivery: "send"` card, clicking an option sends its label (minus `(recommended)`) with
+  `hc send <t> "<text>"`; the agent must still be idle or done on the same turn, and delivery
+  counts once it is no longer idle 1.5 s later. The button reads `Answer` when there are no options.
+- `Other answer`: `hc send --force <t> "<text>"` while the dialog is up (Claude Code's question
+  dialog takes typed text as the answer); `hc send --if idle` otherwise. Same 1.5 s check.
+- Delivered: the card collapses into the Answered list and one line is appended to
+  `<agent cwd>/docs/decisions.md`:
+  `- 2026-11-07 22:41 · asks-test · DECISION · Which font should the heading use? → Geist (Recommended)`.
+  Dismissed and stale asks are not logged.
+- A pending ask whose agent is no longer blocked, shows another dialog, or is gone becomes stale
+  (`Resolved in terminal` / `Agent closed`). Finished asks are kept 24 h, at most 60 in all.
+- Key commands: `tabs-asks.toggle` (bound to `cmd-shift-a` under `layout:asks`), `tabs-asks.open`,
+  `asks.accept` (answer the newest waiting ask in the shown space with its recommended option).
+- Toasts: off by default (Herdr posts its own "needs you"); `toast: true` in
+  `~/.config/herdr-app/asks.json` adds one with the question, clicking it opens the panel.
+- The panel remembers `All` in its own localStorage; the tab bar remembers which panel each space
+  had open, as the shipped tab bar does.
+
+## Built from
+
+- `mods/tabs-asks/main.js`: Herdr's shipped `tabs` mod (0.1.13) with: `panelButton("asks", …)`
+  always present (the enabled list is `shared("workspace.panels")` plus `asks`), the badge,
+  `togglePanel`, a `nextCommand()` loop (`toggle`, `open`), and an `Engine` created in `init`,
+  ticked by `cx.timer.every(2000)` and from `render`. Its `win-*.svg` are copies of the shipped ones.
+- `mods/tabs-asks/engine.js`: `parseReport`, `parseScreen`, `Engine.tick` (diff `terminals()`
+  against the shared state), `Engine.enrich` (screen read, model fallback), `Engine.classify`.
+- `mods/asks/main.js`: the panel. `answer`, `sendText`, `deliver`, `log`, `retry`, `open`, `card`,
+  `receipt`, `render`. One `InputState` made in `init`, shown under whichever card has
+  `Other answer` open.
+- `mods/asks/state.js` = `mods/tabs-asks/state.js`: the shared record under
+  `shared("asks.state")` (`{schema: 1, asks: [...]}`), `update(fn)` (writes only on change),
+  `loadConfig()` from `~/.config/herdr-app/asks.json`, `statusOf`/`reportOf`/`msgOf` (status may
+  be a word or `{app, state, kind, msg}`), `stillAsking`, `agentName` (named tab, else the
+  terminal's title, else the program).
+- Ask record: `id, address, pane, space, space_name, agent, program{key,name,icon,tint}, app, cwd,
+  turn, msg, detected_at, state (pending|sending|delivered|failed|stale|dismissed), kind, question,
+  options[{n,label,detail}], recommended, context, raw, source (report|screen|model|…),
+  confidence, enriched, answer, chosen, answered_at, ended_at, error, note`.
+- `herdr` functions: `terminals`, `agents`, `spaces`, `focused`, `panes`, `layout`, `shared`,
+  `setShared`, `run` (`layout.show|hide|select`, `pane.focus`, `agent.focus`), `hc` (`read`,
+  `get`, `keys`, `send`), `exec` (`claude -p …`, `sh -c … >> decisions.md`), `notify`,
+  `nextCommand`, `readTextFile`, `appHome`, `theme`, `settings`, `window`, `openOverlay` (the
+  shipped tab menus).
+- Layout: the shown layout cloned as `asks` (`layout.clone`), its tab-bar block's `content.mod`
+  set to `tabs-asks`, and `{ "id": "asks", "type": "block", "content": { "mod": "asks" } }` added to
+  the `panel-body` stack. `keys.json`: `"layout:asks": { "cmd-shift-a": "tabs-asks.toggle" }` plus
+  the source layout's own `layout:` keys. `install.mjs` does all of this and `--uninstall`.
+- Icons: `asks.svg`, `check.svg`, `x.svg`, `terminal.svg`, `send.svg` (Lucide-style, stroke
+  `currentColor`, drawn with `svg()` so they take the text colour).
+
+## Watch out
+
+- The layout must have a tab-bar block (`content.mod: "tabs"`) and the `panel` / `panel-body`
+  nodes; `main` and clones of it do. `terminals` and `win98` don't, and the installer stops.
+- A mod copy starts the first time it is shown. That is why detection is in the tab bar, not in
+  the panel: a hidden stack child never runs until opened.
+- `<mod>.<command>` reaches shown copies only: `asks.accept` works while the panel is open;
+  `tabs-asks.*` always.
+- `hc send` from inside another agent's terminal wraps text in `<hc from="…">` tags; from the app
+  there is no parent terminal, so the text arrives bare. `notes = false` in
+  `~/.config/herdr-core/config.toml` turns the tags off everywhere.
+- A person can answer the dialog in the terminal while a card is open; the pre-send check and the
+  2 s tick turn such cards stale. A key pressed by Asks after the dialog closed would land in the
+  agent's prompt line, which is why the check happens right before `hc keys`.
+- Claude Code's permission dialog option 2 is long (`Yes, and switch to accept edits … (shift+tab)`):
+  it is shown truncated with the full text in the tooltip, never shortened in the data.
+- The `❯` cursor line's label is what the person has typed into Claude Code's free-text option
+  (e.g. `4. default gre`); it is parsed as an option only when the numbering runs from 1, and the
+  report's options win over the screen's labels.
+- The context line is the last `⏺` prose line after the last `❯` prompt; tool lines
+  (`Write(`, `Bash(` …) and `User answered` are skipped. Before the screen is read the card says
+  `Reading the dialog…`.
+- `exec` has a 30 s limit; Haiku answers in 2–7 s. The model is never on the path for a Claude
+  Code dialog, but it is for every finished turn with a `?` in it (`trailing_questions`).
+- Do not filter finished turns by `report.app` or `t.agent`: the app's `terminals()` entries
+  don't always carry them, and the first build silently skipped every turn because of that.
+  `debug: true` in asks.json writes each step to `asks.log`; that is how it was found.
+- `shared()` is persisted and every mod re-renders on `setShared`, so `update()` compares JSON
+  before writing and raw screen text is capped at 3000 characters per ask.
+- The `agents()` list has no sub-agents without panes; an ask from one is keyed by address but has
+  `pane: null`, and `Open terminal` uses `agent.focus` then.
+- `herdr-app shot` returns the last drawn frame; when the window is idle it does not prove a
+  redraw.
+
+## Done when
+
+- `herdr-app check` passes for `mods/asks` and `mods/tabs-asks`; `herdr-app status` lists no
+  errors and `"layout": "asks"`.
+- The tab bar shows `Open questions` left of `Files`; clicking it opens the right panel at the Files
+  width; clicking again hides it; `cmd-shift-a` does the same.
+- With Claude Code in a space, `hc send <t> "Use the AskUserQuestion tool to ask which colour …
+  Red, Green, Blue; recommend Green"` puts a `DECISION` card in that space's panel within 2 s,
+  options `1 Green (Recommended)` (marked), `2 Red`, `3 Blue`, and `Open questions 1` in the tab bar.
+- Clicking `Red` makes the agent's screen say `→ Red` within 3 s, the card moves to `Answered`
+  with `→ Red`, and `<cwd>/docs/decisions.md` gains the line.
+- Answering the dialog in the terminal instead turns the card into `Resolved in terminal`.
+- `Other answer` + `Tabler icons instead` + Enter: the agent reports that free-text answer.
+- A `claude --permission-mode default` agent asked to write a file shows an `APPROVAL` card
+  `Do you want to create note.txt? Allow Write: …/note.txt` with options `1 Yes`, `2 Yes, and
+  switch to accept edits …`, `3 No`; clicking `Yes` writes the file.
+- An agent asked to "tell me in plain text what you need me to decide" ends its turn with a
+  list of questions and, within ~10 s, a `QUESTION` card appears with `Answer`; typing a reply and
+  Enter sends it and the agent starts working.
+- From another space the button reads `Open questions 1 elsewhere` (no red pill); `All` in the panel lists
+  the ask with its space name.

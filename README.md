@@ -31,6 +31,8 @@ the line of context. No model is involved for Claude Code.
 of a dialog, Asks reads that last message and asks `claude -p` (Haiku) whether the agent is
 actually waiting on you. If so it becomes a `QUESTION` card; clicking an option or typing an
 answer sends it to the agent as a message. Rhetorical "let me know if…" endings are skipped.
+A message that asks several questions at once becomes one card that lists them and takes a
+single typed answer; the questions are never offered as clickable options.
 
 For agents that only report "blocked", Asks parses the numbered options on screen. If that
 fails it asks `claude -p` (Haiku, structured output) to classify the dialog, and only trusts
@@ -97,6 +99,7 @@ false` keeps it to dialogs only; `classify: "off"` never calls a model.
   with the question.
 
 Keys: `tabs-asks.toggle` shows or hides the panel, `tabs-asks.open` opens it,
+`tabs-asks.recheck` re-reads every agent's current turn (after a rule change or a miss),
 `asks.accept` answers the newest waiting ask in the shown space with the recommended option
 (not bound by default).
 

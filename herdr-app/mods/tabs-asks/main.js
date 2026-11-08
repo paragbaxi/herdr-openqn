@@ -30,6 +30,7 @@ export default class Tabs extends View {
         const c = await nextCommand();
         if (c === "toggle") this.togglePanel("asks", c === "open");
         else if (c === "open") this.togglePanel("asks", true);
+        else if (c === "recheck") this.engine.recheck();
         cx.notify();
       }
     });

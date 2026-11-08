@@ -143,6 +143,13 @@ bar. Answers are pressed into the agent's terminal through `hc`.
 - Do not filter finished turns by `report.app` or `t.agent`: the app's `terminals()` entries
   don't always carry them, and the first build silently skipped every turn because of that.
   `debug: true` in asks.json writes each step to `asks.log`; that is how it was found.
+- The person's last prompt is the last `❯` line that is NOT under a rule: the input box at the
+  bottom also starts with `❯` and may hold text typed but not sent, and anchoring on it makes
+  the agent's message empty. `tabs-asks.recheck` re-runs the finished-turn check for every
+  live agent's current turn, which is how to test a parser or prompt change on a real screen.
+- A list of several questions is not a list of options. The classifier returns them in
+  `questions`, and `normalize()` drops any options that are mostly questions; the card lists the
+  questions and offers only `Answer` (one typed message).
 - `shared()` is persisted and every mod re-renders on `setShared`, so `update()` compares JSON
   before writing and raw screen text is capped at 3000 characters per ask.
 - The `agents()` list has no sub-agents without panes; an ask from one is keyed by address but has

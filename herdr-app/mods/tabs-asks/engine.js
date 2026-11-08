@@ -4,6 +4,29 @@ import { terminals, agents, focused, hc, exec, notify, appHome } from "herdr";
 import { readState, update, hash, statusOf, reportOf, msgOf, agentName, MAX_ASKS, KEEP_MS } from "./state.js";
 const MAX_CHECKED = 300;
 
+// A prompt the person sent, not the input box at the bottom (which sits under a rule
+// and may hold text typed but not yet sent).
+function sentPrompt(lines, i) {
+  if (!/^❯\s+\S/.test(lines[i])) return false;
+  let j = i - 1;
+  while (j >= 0 && !lines[j].trim()) j--;
+  return !(j >= 0 && RULE.test(lines[j]));
+}
+
+// A list of separate questions is not a list of answers. If the model returned the
+// questions as options (or several questions at once), there is nothing to click: the
+// card lists the questions and takes one typed answer.
+export function normalize(model) {
+  if (!model) return model;
+  const questions = Array.isArray(model.questions) ? model.questions.map((q) => String(q).trim()).filter(Boolean) : [];
+  const options = Array.isArray(model.options) ? model.options.map((o) => String(o).trim()).filter(Boolean) : [];
+  const asking = options.filter((o) => /\?\s*$/.test(o)).length;
+  if (questions.length > 1 || (options.length > 1 && asking >= Math.ceil(options.length / 2))) {
+    return { ...model, options: [], recommended: null, questions: questions.length > 1 ? questions : options.filter((o) => /\?\s*$/.test(o)) };
+  }
+  return { ...model, options, questions: [] };
+}
+
 const SCHEMA = JSON.stringify({
   type: "object",
   properties: {
@@ -11,11 +34,12 @@ const SCHEMA = JSON.stringify({
     kind: { type: "string", enum: ["APPROVAL", "DECISION", "QUESTION", "UNCLEAR"] },
     question: { type: "string" },
     options: { type: "array", items: { type: "string" } },
+    questions: { type: "array", items: { type: "string" } },
     recommended: { type: ["integer", "null"] },
     context: { type: "string" },
     confidence: { type: "number" },
   },
-  required: ["asks", "kind", "question", "options", "recommended", "context", "confidence"],
+  required: ["asks", "kind", "question", "options", "questions", "recommended", "context", "confidence"],
   additionalProperties: false,
 });
 
@@ -48,7 +72,7 @@ export function parseScreen(text) {
   }
   // Context: the agent's last line of prose in the current turn (after the last prompt the person sent).
   let start = 0;
-  for (let i = lines.length - 1; i >= 0; i--) if (/^❯\s+\S/.test(lines[i])) { start = i; break; }
+  for (let i = lines.length - 1; i >= 0; i--) if (sentPrompt(lines, i)) { start = i; break; }
   for (let i = lines.length - 1; i >= start; i--) {
     const l = lines[i];
     if (/^⏺\s+\S/.test(l) && !/^⏺\s+(User answered|Write\(|Read\(|Bash\(|Edit\()/.test(l)) { context = l.replace(/^⏺\s+/, "").trim(); break; }
@@ -81,7 +105,7 @@ export function parseReport(report) {
 export function parseLastMessage(text) {
   const lines = (text ?? "").replace(/\r/g, "").split("\n");
   let start = -1;
-  for (let i = lines.length - 1; i >= 0; i--) if (/^❯\s+\S/.test(lines[i]) && !/^❯\s*$/.test(lines[i])) { start = i; break; }
+  for (let i = lines.length - 1; i >= 0; i--) if (sentPrompt(lines, i)) { start = i; break; }
   if (start < 0) return { message: "", hasQuestion: false };
   // Skip the prompt's own continuation lines.
   let i = start + 1;
@@ -228,6 +252,18 @@ export class Engine {
     exec("sh", ["-c", 'printf "%s %s\n" "$(date +%H:%M:%S)" "$1" >> "$2"', "asks", String(line).slice(0, 600), `${appHome()}/asks.log`]).catch(() => {});
   }
 
+  // `tabs-asks.recheck`: forget the finished-turn checks for every live agent's current
+  // turn, so the next tick reads those turns again (after a rule change, or a miss).
+  recheck() {
+    const live = terminals().filter((t) => t.state === "live");
+    const keys = new Set(live.map((t) => `${t.address}:p:${t.turn ?? 0}`));
+    update((s) => {
+      s.checked = (s.checked ?? []).filter((k) => !keys.has(k));
+      s.asks = s.asks.filter((a) => !(keys.has(a.id) && a.state !== "delivered"));
+    });
+    this.debug(`recheck ${[...keys].join(" ")}`);
+  }
+
   // Read the finished turn; if it ends asking the person something, make a QUESTION card.
   checkTurn(t, agent, cx) {
     const key = `${t.address}:p:${t.turn ?? 0}`;
@@ -235,13 +271,13 @@ export class Engine {
     this.checking.add(key);
     cx.spawn(async (cx) => {
       try {
-        const r = await hc(["read", t.address, "--json", "--lines", "60"]);
+        const r = await hc(["read", t.address, "--json", "--lines", "100"]);
         if (r.code !== 0) { this.debug(`${key} read failed: ${r.stderr}`); return; }
         const text = JSON.parse(r.stdout).text ?? "";
         const { message, hasQuestion } = parseLastMessage(text);
         this.debug(`${key} message ${message.length} chars, question=${hasQuestion}`);
         if (!hasQuestion || message.length < 8) return;
-        const model = await this.classify(message, { app: reportOf(t)?.app ?? agent?.app, program: agent?.program, msg: "" }, "message");
+        const model = normalize(await this.classify(message, { app: reportOf(t)?.app ?? agent?.app, program: agent?.program, msg: "" }, "message"));
         this.debug(`${key} model: ${JSON.stringify(model)}`);
         if (!model || !model.asks || model.confidence < 0.6) return;
         const now = Date.now();
@@ -252,6 +288,7 @@ export class Engine {
           app: reportOf(t)?.app ?? agent?.app ?? null, cwd: t.cwd ?? null, turn: t.turn ?? 0, msg: "",
           detected_at: now, state: "pending", delivery: "send",
           kind: "QUESTION", question: model.question, options: model.options.map((label, i) => ({ n: i + 1, label, detail: "" })), recommended: model.recommended,
+          questions: model.questions ?? [],
           context: model.context, raw: message.slice(-3000), source: "model", confidence: model.confidence, enriched: true,
           answer: null, answered_at: null, error: null, note: null,
         };
@@ -268,8 +305,9 @@ export class Engine {
       "A coding agent just finished a turn and printed this message to the person. Decide whether it is waiting on an answer. Return JSON only.",
       "asks: true only if the agent needs the person to decide, confirm or tell it something before it can usefully continue (a real question, a choice, a go-ahead). false for rhetorical questions, offers like 'let me know if you want X', summaries, or finished work.",
       "kind: QUESTION when asks is true, else UNCLEAR.",
-      "question: the thing being asked, under 160 characters, in the person's language, no preamble. If several questions, the main one followed by '(+N more)'.",
-      "options: choices the message itself lays out, as short labels in its own words, in order; empty if it asks open-endedly. Never invent.",
+      "question: the thing being asked, under 160 characters, in the person's language, no preamble. If the message asks several separate questions, summarise what they are about, e.g. '9 questions before scaffolding: backend, first user, stack…'.",
+      "questions: when the message asks several separate questions, each one in its own words, in order (keep any numbering out). Empty for a single question.",
+      "options: alternatives the message offers as answers to ONE question (A or B, yes or no, a list of candidates), as short labels in its own words, in order. A list of questions is never options. Empty if it asks open-endedly or asks several questions. Never invent.",
       "recommended: 0-based index of the option the agent said it prefers, else null.",
       "context: under 120 characters, past tense, what the agent did this turn.",
       "confidence: 0 to 1.",
@@ -280,6 +318,7 @@ export class Engine {
       "kind: APPROVAL = a permission or confirmation gate; DECISION = enumerated options to choose from; QUESTION = open-ended; UNCLEAR = anything else or no dialog.",
       "question: what is being asked, under 160 characters, in the person's language, no preamble.",
       "options: copied verbatim from the screen, in order, without their numbers. Never invent, merge or reorder. Empty if none.",
+      "questions: always empty here.",
       "recommended: 0-based index of an option the agent itself marked recommended, else null.",
       "context: under 120 characters, past tense, what the agent was doing when it stopped.",
       "confidence: 0 to 1.",

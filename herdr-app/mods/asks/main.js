@@ -153,6 +153,10 @@ export default class Asks extends View {
         .when(Boolean(ask.context), (el) => el.child(div().flex_1().min_w(0).truncate().text_size(11).text_color(t.dim).tooltip(ask.context).child(ask.context))))
       .child(div().w_full().text_size(13).text_color(t.foreground).child(ask.question || (ask.enriched ? "Needs you in the terminal" : "Reading the dialog…")))
       .when(ask.options.length > 0 && ask.kind !== "UNCLEAR", (el) => el.child(v_flex().w_full().gap(5).children(ask.options.map(option))))
+      .when((ask.questions?.length ?? 0) > 1, (el) => el.child(v_flex().w_full().gap(4).children(ask.questions.map((q, i) =>
+        h_flex().id(`q-${ask.id}-${i}`).w_full().gap(8).items_start()
+          .child(div().w(18).h(18).flex_none().rounded(4).flex().items_center().justify_center().text_size(10.5).font_semibold().bg(t.raised).text_color(t.muted).child(String(i + 1)))
+          .child(div().flex_1().min_w(0).text_size(12).text_color(t.muted).child(q))))))
       .when(ask.kind === "UNCLEAR" && ask.enriched, (el) => el.child(div().text_size(11.5).text_color(t.dim).child("Asks could not read this dialog. Open the terminal to answer it.")))
       .when(this.other === ask.id, (el) => el.child(Input.new(this.input).w_full().h(32).px(10).rounded(8).border_1().border_color(t.accent).bg(t.background).text_size(12.5).text_color(t.foreground)))
       .when(failed, (el) => el.child(div().text_size(11.5).text_color(t.blocked).child(ask.error ?? "Failed")))

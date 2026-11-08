@@ -148,8 +148,17 @@ bar. Answers are pressed into the agent's terminal through `hc`.
   the agent's message empty. `tabs-asks.recheck` re-runs the finished-turn check for every
   live agent's current turn, which is how to test a parser or prompt change on a real screen.
 - A list of several questions is not a list of options. The classifier returns them in
-  `questions`, and `normalize()` drops any options that are mostly questions; the card lists the
-  questions and offers only `Answer` (one typed message).
+  `questions` as `{text, options, recommended}`, and `normalize()` drops any top-level options
+  that are mostly questions. The card lists the questions; clicking one unfolds its options and an
+  `Other answer…` input, picks are drafts in the panel (`this.drafts[ask.id][i]`, not shared
+  state), and `Send answers (k/n)` sends `1. <question> → <answer>` lines as one message. A
+  multi-line `hc send` reaches Claude Code as one message (bracketed paste); verified.
+- gpui-kit style setters want a value: `.bg(cond ? x : undefined)` fails the whole re-render with
+  "expected a string, got nil" (the panel then shows its last good frame with a red bar). Use
+  `.when(cond, el => el.bg(x))`.
+- `spaces-asks` is a clone of the shipped `spaces` mod (`herdr-app do mod.clone --name spaces --as
+  spaces-asks`) with `waiting(spaceId)` reading `shared("asks.state")` and a pill after the space
+  name (and in the narrow rail). Mods re-render on every `setShared`, so it needs no timer.
 - `shared()` is persisted and every mod re-renders on `setShared`, so `update()` compares JSON
   before writing and raw screen text is capped at 3000 characters per ask.
 - The `agents()` list has no sub-agents without panes; an ask from one is keyed by address but has

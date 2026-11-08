@@ -31,8 +31,13 @@ the line of context. No model is involved for Claude Code.
 of a dialog, Asks reads that last message and asks `claude -p` (Haiku) whether the agent is
 actually waiting on you. If so it becomes a `QUESTION` card; clicking an option or typing an
 answer sends it to the agent as a message. Rhetorical "let me know if…" endings are skipped.
-A message that asks several questions at once becomes one card that lists them and takes a
-single typed answer; the questions are never offered as clickable options.
+A message that asks several questions at once becomes one card that lists them. Click a
+question to unfold the choices the agent gave for it (or type your own); each pick is kept as a
+draft and `Send answers (2/3)` delivers them together as one numbered message. The questions
+themselves are never offered as clickable answers.
+
+**Spaces show a count too.** The spaces list in the sidebar gets a red pill with the number of
+open questions in each space, so a space you are not looking at still tells you it needs you.
 
 For agents that only report "blocked", Asks parses the numbered options on screen. If that
 fails it asks `claude -p` (Haiku, structured output) to classify the dialog, and only trusts
@@ -94,6 +99,11 @@ false` keeps it to dialogs only; `classify: "off"` never calls a model.
 - `classify`: `auto` (model only when the report and screen say nothing usable), `always`
   (also adds a context line for parsed asks), `off` (never call a model).
 - `trailing_questions`: check every finished turn for a plain-text question (needs the model).
+
+The installer puts three mods in place: `asks` (the panel), `tabs-asks` (the tab bar with the
+button and the detection engine) and `spaces-asks` (the spaces list with the per-space count).
+The last two are clones of Herdr's shipped mods with a few lines added; the layout `asks` points
+at them.
 - `debug`: append one line per detection step to `~/.config/herdr-app/asks.log`.
 - `toast`: Herdr already toasts "needs you" for a blocked agent; `true` adds a second toast
   with the question.

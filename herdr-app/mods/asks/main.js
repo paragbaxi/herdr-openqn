@@ -9,6 +9,8 @@ import { readState, update, stillAsking, stillIdle, age, loadConfig } from "./st
 const KIND = { APPROVAL: "blocked", DECISION: "accent", QUESTION: "working", UNCLEAR: "dim" };
 const stamp = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 const one = (s) => (s ?? "").replace(/\s+/g, " ").trim();
+// Questions of a multi-question card; older cards stored them as plain strings.
+const questionsOf = (ask) => (ask.questions ?? []).map((q) => typeof q === "string" ? { text: q, options: [], recommended: null } : { text: q.text, options: q.options ?? [], recommended: q.recommended ?? null });
 
 function iconOf(p, size, color) {
   if (!p?.icon) return div().size(size).rounded(4).bg(color).opacity(0.3);
@@ -20,9 +22,16 @@ export default class Asks extends View {
     this.all = localStorage.getItem("scope") === "all";
     this.showAnswered = false;
     this.other = null; this.otherText = "";
+    // Multi-question cards: which question is unfolded, and the answers drafted so far
+    // ({ [ask.id]: { [index]: text } }). Sent together with "Send answers".
+    this.openQ = null; this.otherQ = null; this.drafts = {};
     this.input = InputState.new({ placeholder: "Type a different answer, Enter to send" });
     this.input.on("change", (_e, cx) => { this.otherText = this.input.value(); cx.notify(); });
-    this.input.on("submit", (_e, cx) => { const ask = readState().asks.find((a) => a.id === this.other); if (ask && this.otherText.trim()) this.sendText(ask, this.otherText.trim(), cx); });
+    this.input.on("submit", (_e, cx) => {
+      const text = this.otherText.trim();
+      if (this.otherQ) { if (text) this.draft(this.otherQ.id, this.otherQ.i, text); this.otherQ = null; this.input.set_value(""); this.otherText = ""; cx.notify(); return; }
+      const ask = readState().asks.find((a) => a.id === this.other); if (ask && text) this.sendText(ask, text, cx);
+    });
     this.config = null;
     const config = (cx) => cx.spawn(async (cx) => { this.config = await loadConfig(); cx.notify(); });
     config(cx);
@@ -43,6 +52,18 @@ export default class Asks extends View {
   }
 
   set(id, patch) { update((s) => { const a = s.asks.find((x) => x.id === id); if (a) Object.assign(a, patch); }); }
+
+  draft(id, i, text) { (this.drafts[id] ??= {})[i] = text; this.openQ = null; }
+
+  // One message with every drafted answer, numbered like the agent's questions.
+  sendDrafts(ask, cx) {
+    const d = this.drafts[ask.id] ?? {};
+    const qs = questionsOf(ask);
+    const lines = qs.map((q, i) => d[i] ? `${i + 1}. ${q.text} → ${d[i]}` : null).filter(Boolean);
+    if (!lines.length) return;
+    delete this.drafts[ask.id];
+    this.sendText(ask, lines.join("\n"), cx);
+  }
 
   stale(ask) { this.set(ask.id, { state: "stale", note: "Resolved in terminal", ended_at: Date.now() }); }
 
@@ -129,6 +150,7 @@ export default class Asks extends View {
 
   card(ask, t, now) {
     const sending = ask.state === "sending", failed = ask.state === "failed";
+    const questions = questionsOf(ask), drafts = this.drafts[ask.id] ?? {}, drafted = Object.keys(drafts).length;
     const color = t[KIND[ask.kind] ?? "dim"];
     const chip = (text, c) => div().px(5).h(16).flex_none().flex().items_center().rounded(4).text_size(10).font_semibold().bg(c).opacity(0.9).text_color(t.background).child(text);
     const action = (id, icon, label, fn, primary) => h_flex().id(id).h(26).px(8).gap(5).items_center().rounded(7).flex_none().text_size(11.5).cursor_pointer()
@@ -153,15 +175,34 @@ export default class Asks extends View {
         .when(Boolean(ask.context), (el) => el.child(div().flex_1().min_w(0).truncate().text_size(11).text_color(t.dim).tooltip(ask.context).child(ask.context))))
       .child(div().w_full().text_size(13).text_color(t.foreground).child(ask.question || (ask.enriched ? "Needs you in the terminal" : "Reading the dialog…")))
       .when(ask.options.length > 0 && ask.kind !== "UNCLEAR", (el) => el.child(v_flex().w_full().gap(5).children(ask.options.map(option))))
-      .when((ask.questions?.length ?? 0) > 1, (el) => el.child(v_flex().w_full().gap(4).children(ask.questions.map((q, i) =>
-        h_flex().id(`q-${ask.id}-${i}`).w_full().gap(8).items_start()
-          .child(div().w(18).h(18).flex_none().rounded(4).flex().items_center().justify_center().text_size(10.5).font_semibold().bg(t.raised).text_color(t.muted).child(String(i + 1)))
-          .child(div().flex_1().min_w(0).text_size(12).text_color(t.muted).child(q))))))
+      .when(questions.length > 1, (el) => el.child(v_flex().w_full().gap(4).children(questions.map((q, i) => {
+        const key = `${ask.id}:${i}`, open = this.openQ === key, chosen = drafts[i];
+        const pick = (text) => (_e, cx) => { this.draft(ask.id, i, text); this.otherQ = null; cx.notify(); };
+        return v_flex().id(`q-${ask.id}-${i}`).w_full().gap(4).rounded(8).px(6).py(4).when(open, (el) => el.bg(t.background))
+          .child(h_flex().id(`qh-${ask.id}-${i}`).w_full().gap(8).items_start().cursor_pointer().hover((s) => s.text_color(t.foreground))
+            .on_click((_e, cx) => { this.openQ = open ? null : key; if (this.otherQ && this.otherQ.i !== i) this.otherQ = null; cx.notify(); })
+            .child(div().w(18).h(18).flex_none().rounded(4).flex().items_center().justify_center().text_size(10.5).font_semibold().bg(chosen ? t.accent : t.raised).text_color(chosen ? t.background : t.muted).child(String(i + 1)))
+            .child(v_flex().flex_1().min_w(0).gap(1)
+              .child(div().text_size(12).text_color(chosen || open ? t.foreground : t.muted).child(q.text))
+              .when(Boolean(chosen), (el) => el.child(div().text_size(11.5).text_color(t.accent).child(`→ ${chosen}`)))))
+          .when(open && !sending, (el) => el.child(v_flex().w_full().pl(26).gap(3)
+            .children(q.options.map((o, j) => h_flex().id(`qo-${ask.id}-${i}-${j}`).w_full().px(8).py(4).gap(6).items_center().rounded(6).border_1()
+              .border_color(q.recommended === j ? t.accent : t.border).bg(t.surface).cursor_pointer().hover((s) => s.bg(t.hover).border_color(t.input))
+              .on_click(pick(o.label))
+              .child(div().flex_1().min_w(0).text_size(12).child(o.label))
+              .when(q.recommended === j, (el) => el.child(div().text_size(10).flex_none().text_color(t.accent).child("recommends")))))
+            .child(this.otherQ?.id === ask.id && this.otherQ.i === i
+              ? Input.new(this.input).w_full().h(30).px(10).rounded(6).border_1().border_color(t.accent).bg(t.surface).text_size(12).text_color(t.foreground)
+              : h_flex().id(`qt-${ask.id}-${i}`).px(8).py(4).rounded(6).text_size(11.5).text_color(t.muted).cursor_pointer().hover((s) => s.text_color(t.foreground))
+                  .on_click((_e, cx) => { this.otherQ = { id: ask.id, i }; this.other = null; this.input.set_value(""); this.otherText = ""; this.input.focus(); cx.notify(); })
+                  .child(q.options.length ? "Other answer…" : "Type an answer…"))));
+      }))))
       .when(ask.kind === "UNCLEAR" && ask.enriched, (el) => el.child(div().text_size(11.5).text_color(t.dim).child("Asks could not read this dialog. Open the terminal to answer it.")))
       .when(this.other === ask.id, (el) => el.child(Input.new(this.input).w_full().h(32).px(10).rounded(8).border_1().border_color(t.accent).bg(t.background).text_size(12.5).text_color(t.foreground)))
       .when(failed, (el) => el.child(div().text_size(11.5).text_color(t.blocked).child(ask.error ?? "Failed")))
       .child(h_flex().gap(6).items_center().flex_wrap()
         .when(failed, (el) => el.child(action(`retry-${ask.id}`, "mods/asks/send.svg", "Retry", (cx) => this.retry(ask, cx), true)))
+        .when(!sending && drafted > 0, (el) => el.child(action(`send-${ask.id}`, "mods/asks/send.svg", `Send answers (${drafted}/${questions.length})`, (cx) => this.sendDrafts(ask, cx), true)))
         .when(!sending && ask.kind !== "UNCLEAR" && ask.kind !== "APPROVAL", (el) => el.child(action(`other-${ask.id}`, "mods/asks/send.svg", this.other === ask.id ? "Cancel" : ask.options.length ? "Other answer" : "Answer", (cx) => {
           this.other = this.other === ask.id ? null : ask.id;
           if (this.other) this.input.focus();

@@ -18,11 +18,18 @@ function sentPrompt(lines, i) {
 // card lists the questions and takes one typed answer.
 export function normalize(model) {
   if (!model) return model;
-  const questions = Array.isArray(model.questions) ? model.questions.map((q) => String(q).trim()).filter(Boolean) : [];
+  const isQ = (s) => /\?\s*$/.test(s);
+  const sub = (q) => {
+    const o = typeof q === "string" ? { text: q } : q ?? {};
+    const options = (Array.isArray(o.options) ? o.options : []).map((x) => String(x).trim()).filter((x) => x && !isQ(x));
+    const recommended = Number.isInteger(o.recommended) && o.recommended >= 0 && o.recommended < options.length ? o.recommended : null;
+    return { text: String(o.text ?? "").trim(), options, recommended };
+  };
+  const questions = (Array.isArray(model.questions) ? model.questions : []).map(sub).filter((q) => q.text);
   const options = Array.isArray(model.options) ? model.options.map((o) => String(o).trim()).filter(Boolean) : [];
-  const asking = options.filter((o) => /\?\s*$/.test(o)).length;
+  const asking = options.filter(isQ).length;
   if (questions.length > 1 || (options.length > 1 && asking >= Math.ceil(options.length / 2))) {
-    return { ...model, options: [], recommended: null, questions: questions.length > 1 ? questions : options.filter((o) => /\?\s*$/.test(o)) };
+    return { ...model, options: [], recommended: null, questions: questions.length > 1 ? questions : options.filter(isQ).map(sub) };
   }
   return { ...model, options, questions: [] };
 }
@@ -34,7 +41,9 @@ const SCHEMA = JSON.stringify({
     kind: { type: "string", enum: ["APPROVAL", "DECISION", "QUESTION", "UNCLEAR"] },
     question: { type: "string" },
     options: { type: "array", items: { type: "string" } },
-    questions: { type: "array", items: { type: "string" } },
+    questions: { type: "array", items: { type: "object", properties: {
+      text: { type: "string" }, options: { type: "array", items: { type: "string" } }, recommended: { type: ["integer", "null"] },
+    }, required: ["text", "options", "recommended"], additionalProperties: false } },
     recommended: { type: ["integer", "null"] },
     context: { type: "string" },
     confidence: { type: "number" },
@@ -288,7 +297,7 @@ export class Engine {
           app: reportOf(t)?.app ?? agent?.app ?? null, cwd: t.cwd ?? null, turn: t.turn ?? 0, msg: "",
           detected_at: now, state: "pending", delivery: "send",
           kind: "QUESTION", question: model.question, options: model.options.map((label, i) => ({ n: i + 1, label, detail: "" })), recommended: model.recommended,
-          questions: model.questions ?? [],
+          questions: (model.questions ?? []).map((q) => ({ text: q.text, options: q.options.map((label, i) => ({ n: i + 1, label, detail: "" })), recommended: q.recommended })),
           context: model.context, raw: message.slice(-3000), source: "model", confidence: model.confidence, enriched: true,
           answer: null, answered_at: null, error: null, note: null,
         };
@@ -306,7 +315,7 @@ export class Engine {
       "asks: true only if the agent needs the person to decide, confirm or tell it something before it can usefully continue (a real question, a choice, a go-ahead). false for rhetorical questions, offers like 'let me know if you want X', summaries, or finished work.",
       "kind: QUESTION when asks is true, else UNCLEAR.",
       "question: the thing being asked, under 160 characters, in the person's language, no preamble. If the message asks several separate questions, summarise what they are about, e.g. '9 questions before scaffolding: backend, first user, stack…'.",
-      "questions: when the message asks several separate questions, each one in its own words, in order (keep any numbering out). Empty for a single question.",
+      "questions: when the message asks several separate questions, one entry per question, in order: text = the question in its own words (no numbering); options = the alternatives the message lists under THAT question, as short labels in its own words, in order, empty if it gives none; recommended = 0-based index of the one the agent says it prefers, else null. Empty array for a single question.",
       "options: alternatives the message offers as answers to ONE question (A or B, yes or no, a list of candidates), as short labels in its own words, in order. A list of questions is never options. Empty if it asks open-endedly or asks several questions. Never invent.",
       "recommended: 0-based index of the option the agent said it prefers, else null.",
       "context: under 120 characters, past tense, what the agent did this turn.",

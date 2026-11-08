@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const HOME = process.env.HERDR_APP_HOME || path.join(os.homedir(), ".config", "herdr-app");
-const MODS = ["asks", "tabs-asks"];
+const MODS = ["asks", "tabs-asks", "spaces-asks"];
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(n);
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -22,7 +22,9 @@ const writeJson = (p, v) => fs.writeFileSync(p, JSON.stringify(v, null, 2) + "\n
 const app = (...a) => { try { return execFileSync("herdr-app", a, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }); } catch (e) { return e.stdout || e.stderr || String(e); } };
 const run = (cmd, params) => { const out = app("do", cmd, ...Object.entries(params).flatMap(([k, v]) => [`--${k}`, String(v)])); if (out.includes('"error"')) throw new Error(`${cmd}: ${out.trim()}`); return out; };
 const find = (node, pred) => { if (!node) return null; if (pred(node)) return node; for (const c of node.children ?? []) { const f = find(c, pred); if (f) return f; } return null; };
-const ours = (dir) => fs.existsSync(path.join(dir, "state.js")) && fs.existsSync(path.join(dir, "asks.svg"));
+// Our folders: the panel and tab bar carry state.js + asks.svg; the spaces clone says so in its header.
+const ours = (dir) => (fs.existsSync(path.join(dir, "state.js")) && fs.existsSync(path.join(dir, "asks.svg")))
+  || (() => { try { return fs.readFileSync(path.join(dir, "main.js"), "utf8").slice(0, 400).includes("herdr-openqn"); } catch { return false; } })();
 
 if (!fs.existsSync(HOME)) { console.error(`No Herdr app home at ${HOME}. Open the Herdr app once first.`); process.exit(1); }
 const shared = readJson(path.join(HOME, "shared.json"), {});
@@ -69,16 +71,20 @@ if (!layout) {
   console.log(`Cloned layout ${source} as ${AS}`);
 } else source ??= layout.cloned_from?.name ?? "main";
 
-// 3. Patch: tab bar → tabs-asks; panel-body stack gets an asks block.
+// 3. Patch: tab bar → tabs-asks; spaces list → spaces-asks (count pill per space);
+//    panel-body stack gets an asks block.
 const tabs = find(layout, (n) => n.content?.mod === "tabs" || n.content?.mod === "tabs-asks");
 if (!tabs) { console.error("This layout has no tab bar block (content.mod = tabs); Asks needs one for its button."); process.exit(1); }
 tabs.content.mod = "tabs-asks";
+const spacesBlock = find(layout, (n) => n.content?.mod === "spaces" || n.content?.mod === "spaces-asks");
+if (spacesBlock) spacesBlock.content.mod = "spaces-asks";
+else console.warn("This layout has no spaces list (content.mod = spaces); skipping the per-space count.");
 const body = find(layout, (n) => n.id === "panel-body" && n.type === "stack");
 const panel = find(layout, (n) => n.id === "panel");
 if (!body || !panel) { console.error("This layout has no right-hand panel stack (ids panel / panel-body); Asks needs one."); process.exit(1); }
 if (!body.children.some((c) => c.id === "asks")) body.children.push({ id: "asks", type: "block", content: { mod: "asks" } });
 writeJson(layoutFile, layout);
-console.log(`Patched layouts/${AS}.json: tab bar uses tabs-asks, panel stack has asks (width ${panel.size?.px ?? "?"}px, max ${panel.max ?? "?"}px, same as Files)`);
+console.log(`Patched layouts/${AS}.json: tab bar uses tabs-asks${spacesBlock ? ", spaces list uses spaces-asks" : ""}, panel stack has asks (width ${panel.size?.px ?? "?"}px, max ${panel.max ?? "?"}px, same as Files)`);
 
 // 4. Keys: our section, carrying the source layout's keys along (e.g. herdr-marks' cmd-shift-m).
 const keys = readJson(keysFile, {});

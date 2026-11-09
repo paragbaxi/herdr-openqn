@@ -6,7 +6,7 @@ export const KEY = "asks.state";
 export const SCHEMA = 1;
 export const MAX_ASKS = 60;
 export const KEEP_MS = 24 * 3600 * 1000;
-export const DEFAULTS = { label: "Open questions", toast: false, log: "docs/decisions.md", classify: "auto", model: "haiku", trailing_questions: true };
+export const DEFAULTS = { label: "Asks", toast: false, log: "docs/decisions.md", classify: "auto", model: "haiku", trailing_questions: true };
 // toast is off: Herdr already posts "needs you" for a blocked agent; true adds a second toast with the question.
 
 export function readState() {

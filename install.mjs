@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Installs the Open questions mods into the Herdr desktop app, clones the shown layout as `asks` with
-// the Open questions panel and tab-bar button, and binds cmd-shift-a. Idempotent; --uninstall reverses it.
+// Installs the Asks mods into the Herdr desktop app, clones the shown layout as `asks` with
+// the Asks panel and tab-bar button, and binds cmd-shift-a. Idempotent; --uninstall reverses it.
 //   node install.mjs [--layout <source>] [--as asks] [--no-switch] [--uninstall]
 import fs from "node:fs";
 import path from "node:path";
@@ -24,7 +24,7 @@ const run = (cmd, params) => { const out = app("do", cmd, ...Object.entries(para
 const find = (node, pred) => { if (!node) return null; if (pred(node)) return node; for (const c of node.children ?? []) { const f = find(c, pred); if (f) return f; } return null; };
 // Our folders: the panel and tab bar carry state.js + asks.svg; the spaces clone says so in its header.
 const ours = (dir) => (fs.existsSync(path.join(dir, "state.js")) && fs.existsSync(path.join(dir, "asks.svg")))
-  || (() => { try { return fs.readFileSync(path.join(dir, "main.js"), "utf8").slice(0, 400).includes("herdr-openqn"); } catch { return false; } })();
+  || (() => { try { return fs.readFileSync(path.join(dir, "main.js"), "utf8").slice(0, 400).includes("herdr-asks"); } catch { return false; } })();
 
 if (!fs.existsSync(HOME)) { console.error(`No Herdr app home at ${HOME}. Open the Herdr app once first.`); process.exit(1); }
 const shared = readJson(path.join(HOME, "shared.json"), {});
@@ -40,14 +40,14 @@ if (flag("--uninstall")) {
   const keys = readJson(keysFile, {});
   delete keys[`layout:${AS}`];
   writeJson(keysFile, keys);
-  console.log(`Removed the ${AS} layout, the Open questions mods and their keys. Shown layout: ${back}.`);
+  console.log(`Removed the ${AS} layout, the Asks mods and their keys. Shown layout: ${back}.`);
   process.exit(0);
 }
 
 // 1. Mods. Only ever replace folders that are ours.
 for (const m of MODS) {
   const src = path.join(here, "mods", m), dst = path.join(HOME, "mods", m);
-  if (fs.existsSync(dst) && !ours(dst)) { console.error(`mods/${m} exists and is not Open questions. Move it aside first.`); process.exit(1); }
+  if (fs.existsSync(dst) && !ours(dst)) { console.error(`mods/${m} exists and is not Asks. Move it aside first.`); process.exit(1); }
   fs.rmSync(dst, { recursive: true, force: true });
   fs.cpSync(src, dst, { recursive: true, filter: (p) => !/gpui-kit\.d\.ts$|jsconfig\.json$/.test(p) });
 }
@@ -74,14 +74,14 @@ if (!layout) {
 // 3. Patch: tab bar → tabs-asks; spaces list → spaces-asks (count pill per space);
 //    panel-body stack gets an asks block.
 const tabs = find(layout, (n) => n.content?.mod === "tabs" || n.content?.mod === "tabs-asks");
-if (!tabs) { console.error("This layout has no tab bar block (content.mod = tabs); Open questions needs one for its button."); process.exit(1); }
+if (!tabs) { console.error("This layout has no tab bar block (content.mod = tabs); Asks needs one for its button."); process.exit(1); }
 tabs.content.mod = "tabs-asks";
 const spacesBlock = find(layout, (n) => n.content?.mod === "spaces" || n.content?.mod === "spaces-asks");
 if (spacesBlock) spacesBlock.content.mod = "spaces-asks";
 else console.warn("This layout has no spaces list (content.mod = spaces); skipping the per-space count.");
 const body = find(layout, (n) => n.id === "panel-body" && n.type === "stack");
 const panel = find(layout, (n) => n.id === "panel");
-if (!body || !panel) { console.error("This layout has no right-hand panel stack (ids panel / panel-body); Open questions needs one."); process.exit(1); }
+if (!body || !panel) { console.error("This layout has no right-hand panel stack (ids panel / panel-body); Asks needs one."); process.exit(1); }
 if (!body.children.some((c) => c.id === "asks")) body.children.push({ id: "asks", type: "block", content: { mod: "asks" } });
 writeJson(layoutFile, layout);
 console.log(`Patched layouts/${AS}.json: tab bar uses tabs-asks${spacesBlock ? ", spaces list uses spaces-asks" : ""}, panel stack has asks (width ${panel.size?.px ?? "?"}px, max ${panel.max ?? "?"}px, same as Files)`);
@@ -109,4 +109,4 @@ if (bad) process.exit(1);
 if (!flag("--no-switch")) { try { run("layout.switch", { name: AS }); console.log(`Switched to layout ${AS}`); } catch (e) { console.warn(`Could not switch layouts (is the window open?): ${e.message}`); } }
 const status = readJson(null, null) ?? (() => { try { return JSON.parse(app("status")); } catch { return null; } })();
 if (status) console.log(`Status: layout=${status.layout} errors=${JSON.stringify(status.errors)}`);
-console.log("Done. Click Open questions in the tab bar, or press cmd-shift-a.");
+console.log("Done. Click Asks in the tab bar, or press cmd-shift-a.");

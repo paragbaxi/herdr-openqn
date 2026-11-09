@@ -1,5 +1,5 @@
 {
-  "layout:open-questions": {
+  "layout:asks": {
     "cmd-shift-a": "tabs-asks.toggle"
   },
   "global": {

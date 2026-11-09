@@ -1,6 +1,6 @@
-# Open questions for Herdr
+# Asks
 
-![Open questions panel](preview.png)
+![Asks panel](preview.png)
 
 Every question your agents ask in a space, in one side panel. Run several agents and the
 questions pile up in different terminals: one stops at a permission dialog, one offers a menu
@@ -17,9 +17,9 @@ the agent's workspace so the next agent can read it instead of asking again.
 
 ## What you get
 
-- An **Open questions** button in the tab bar beside Files and Changes, with a count of questions waiting in
+- An **Asks** button in the tab bar beside Files and Changes, with a count of questions waiting in
   the shown space (and `+N` when other spaces have some).
-- The **Open questions panel** on the right, same width rules as Files, hidden until you open it.
+- The **Asks panel** on the right, same width rules as Files, hidden until you open it.
   Click the button or press `cmd-shift-a`. One panel per space; `All` shows every space.
 - **Cards** with the agent, the kind (`APPROVAL`, `DECISION`, `QUESTION`, `UNCLEAR`), the
   question, the options verbatim with the agent's recommendation marked, an `Other answer`
@@ -43,7 +43,7 @@ draft and `Send answers (2/3)` delivers them together as one numbered message. T
 themselves are never offered as clickable answers.
 
 **Spaces show a count too.** The spaces list in the sidebar gets a red pill with the number of
-open questions in each space, so a space you are not looking at still tells you it needs you.
+asks waiting in each space, so a space you are not looking at still tells you it needs you.
 
 For agents that only report "blocked", the engine parses the numbered options on screen. If that
 fails it asks `claude -p` (Haiku, structured output) to classify the dialog, and only trusts
@@ -60,7 +60,7 @@ Nothing is ever answered without you clicking it.
 ## Install
 
 **As a layout** (the gallery way): ask your agent to read `~/.config/herdr-app/AGENTS.md` and add
-the layout at `herdr.dev/layouts/sachin-philip/herdr-openqn`. It copies `layouts/open-questions.json`
+the layout at `herdr.dev/layouts/sachin-philip/herdr-asks`. It copies `layouts/asks.json`
 and the three mods, merges `keys.json`, and switches to the layout. `ctrl-shift-l` switches back.
 
 **Keeping your own layout:**
@@ -68,24 +68,24 @@ and the three mods, merges `keys.json`, and switches to the layout. `ctrl-shift-
 Needs the Herdr desktop app (0.1.13 or later) and Node 18+.
 
 ```sh
-git clone https://github.com/sachin-philip/herdr-openqn
-node herdr-openqn/install.mjs
+git clone https://github.com/sachin-philip/herdr-asks
+node herdr-asks/install.mjs
 ```
 
 The installer copies two mods into `~/.config/herdr-app/mods/`, clones your shown layout
 as `asks` with the panel and button added, binds `cmd-shift-a` under `layout:asks`, runs
 `herdr-app check` on both mods and switches to the new layout. `cmd-shift-l` switches back;
-`node herdr-openqn/install.mjs --uninstall` removes everything.
+`node herdr-asks/install.mjs --uninstall` removes everything.
 
 The repo is laid out the way the [Herdr gallery](https://herdr.dev/gallery/) expects a layout
-(`layouts/open-questions.json`, `mods/`, `RECIPE.md`, `preview.png`, a `keys.json` snippet at the
+(`layouts/asks.json`, `mods/`, `RECIPE.md`, `preview.png`, a `keys.json` snippet at the
 root). The layout is Herdr's main layout with the tab bar and spaces list pointed at the two
 clones and the panel added, which is also exactly what the installer does to a clone of yours.
 
 Or ask an agent in a Herdr terminal:
 
 ```
-Add the Herdr mod from https://github.com/sachin-philip/herdr-openqn, folder herdr-app.
+Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/sachin-philip/herdr-asks
 Follow its RECIPE.md.
 ```
 
@@ -101,7 +101,7 @@ false` keeps it to dialogs only; `classify: "off"` never calls a model.
 
 ```json
 {
-  "label": "Open questions",
+  "label": "Asks",
   "log": "docs/decisions.md",
   "classify": "auto",
   "model": "haiku",

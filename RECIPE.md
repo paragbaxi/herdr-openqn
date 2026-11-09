@@ -1,17 +1,16 @@
-# Open questions
+# Asks
 
 Every question your agents ask in a space, in one side panel. Whether an agent stops at a
 permission dialog, offers a menu of options, or simply ends its turn with a plain-text question,
 it appears here as a card the moment it happens, so you see what every agent is waiting on and
 keep track of the space as a whole without opening each terminal. Answer on the card and the
-answer goes straight into that agent's terminal; each answer is logged for the next agent. An
-Open questions button in the tab bar counts what is waiting, and each space in the sidebar shows
+answer goes straight into that agent's terminal; each answer is logged for the next agent. An Asks button in the tab bar counts what is waiting, and each space in the sidebar shows
 its own count.
 
-![Open questions](preview.png)
+![Asks](preview.png)
 
 This file is the brief: enough to build it from an empty folder. The files next to it are one
-build of it, shared as a layout: `layouts/open-questions.json` is Herdr's main layout with the
+build of it, shared as a layout: `layouts/asks.json` is Herdr's main layout with the
 tab bar and spaces list pointed at the two clones and the panel added, so copying the layout
 and the three mods and switching to it is all it takes. To keep a layout of your own instead,
 run `node install.mjs`, which clones the layout you are showing and makes the same three
@@ -21,14 +20,14 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
 ## What you see
 
 - In the tab bar, left of `Files`: a 26 px button, speech-bubble icon (`mods/tabs-asks/asks.svg`)
-  and the words `Open questions` (the `label` setting), styled like the Files and Changes buttons (`t.selected` when its panel
+  and the word `Asks` (the `label` setting), styled like the Files and Changes buttons (`t.selected` when its panel
   shows). When questions wait in the shown space, a 16 px red pill (`theme().blocked` on
   `theme().background`, 10.5 px semibold) with the count; when only other spaces have some, dim
   text `+N` or `N elsewhere`.
 - The panel is a child of the layout's existing `panel-body` stack, so it opens where Files
   opens, at the same width (368 px, min 280, max 900 in `main`), and is hidden by default.
   Rounded 10 px card, `t.background`, 1 px `t.border`, like Files.
-- Header, 42 px: `Open questions` semibold; the space name right-aligned in `t.dim` (or `All spaces`);
+- Header, 42 px: `Asks` semibold; the space name right-aligned in `t.dim` (or `All spaces`);
   a 20 px `All` toggle chip.
 - A dim line: `N waiting · M answered today`.
 - Cards, 12 px padding, `t.surface`, 10 px radius, 8 px apart, newest first:
@@ -52,7 +51,7 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   `→ <answer>` under it. `Send answers (k/n)` appears once something is drafted.
 - In the sidebar's spaces list, after a space's name: a 16 px red pill with the number of open
   questions waiting in that space (also in the narrow rail).
-- Empty: `No open questions in <space>. Agents show up here when they stop to ask you something.`
+- Empty: `No asks waiting in <space>. Agents show up here when they stop to ask you something.`
 
 ## How it behaves
 
@@ -136,10 +135,10 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   `get`, `keys`, `send`), `exec` (`claude -p …`, `sh -c … >> decisions.md`), `notify`,
   `nextCommand`, `readTextFile`, `appHome`, `theme`, `settings`, `window`, `openOverlay` (the
   shipped tab menus).
-- Layout `layouts/open-questions.json`: Herdr's shipped `main` (0.1.14) with the tab-bar block's
+- Layout `layouts/asks.json`: Herdr's shipped `main` (0.1.14) with the tab-bar block's
   `content.mod` set to `tabs-asks`, the spaces block's to `spaces-asks`, and `{ "id": "asks",
   "type": "block", "content": { "mod": "asks" } }` added to the `panel-body` stack (sidebar 268 px,
-  panel 368 px, min 280, max 900, hidden). `keys.json`: `"layout:open-questions": { "cmd-shift-a":
+  panel 368 px, min 280, max 900, hidden). `keys.json`: `"layout:asks": { "cmd-shift-a":
   "tabs-asks.toggle" }` (and the same under `global`). `install.mjs` (Node 18+, the Herdr app
   open) makes the same three changes to a clone of the shown layout, named `asks`, carries that
   layout's keys along, and `--uninstall` reverses it.
@@ -204,11 +203,11 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
 
 - `herdr-app check` passes for `mods/asks`, `mods/tabs-asks` and `mods/spaces-asks`;
   `herdr-app status` lists no errors and `"layout": "asks"`.
-- The tab bar shows `Open questions` left of `Files`; clicking it opens the right panel at the Files
+- The tab bar shows `Asks` left of `Files`; clicking it opens the right panel at the Files
   width; clicking again hides it; `cmd-shift-a` does the same.
 - With Claude Code in a space, `hc send <t> "Use the AskUserQuestion tool to ask which colour …
   Red, Green, Blue; recommend Green"` puts a `DECISION` card in that space's panel within 2 s,
-  options `1 Green (Recommended)` (marked), `2 Red`, `3 Blue`, and `Open questions 1` in the tab bar.
+  options `1 Green (Recommended)` (marked), `2 Red`, `3 Blue`, and `Asks 1` in the tab bar.
 - Clicking `Red` makes the agent's screen say `→ Red` within 3 s, the card moves to `Answered`
   with `→ Red`, and `<cwd>/docs/decisions.md` gains the line.
 - Answering the dialog in the terminal instead turns the card into `Resolved in terminal`.
@@ -219,7 +218,7 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
 - An agent asked to "tell me in plain text what you need me to decide" ends its turn with a
   list of questions and, within ~10 s, a `QUESTION` card appears with `Answer`; typing a reply and
   Enter sends it and the agent starts working.
-- From another space the button reads `Open questions 1 elsewhere` (no red pill); `All` in the panel lists
+- From another space the button reads `Asks 1 elsewhere` (no red pill); `All` in the panel lists
   the ask with its space name; the sidebar shows a red `1` after the space that has it.
 - An agent asked for "three questions as plain text, numbered, with three options each and a
   recommendation" gives one `QUESTION` card with three numbered rows; clicking row 2 unfolds its

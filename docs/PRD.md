@@ -1,14 +1,14 @@
-# Open questions — PRD
+# Asks — PRD
 
 **Status:** v0.1 built and installed · 2026-11-07 (see §17 for what changed during the build)
 **Owner:** Sachin Philip
-**Name:** the button and panel say **Open questions** (configurable `label`); the code and mod folders are `asks` / `tabs-asks` / `spaces-asks`. Name decided 2026-11-09, see §13.
+**Name:** **Asks** (button, panel, README, recipe, gallery; configurable `label`); repo `herdr-asks`; mod folders `asks` / `tabs-asks` / `spaces-asks`. Decided 2026-11-09, see §13.
 
 ---
 
 ## 1. Summary
 
-Open questions is a Herdr plugin that turns "an agent is blocked somewhere" into "a decision is waiting for you". It watches every agent in a space, notices when one stops to ask a question or request approval, understands what is being asked, and shows it as a card in a hideable right-hand panel. You answer on the card and Open questions delivers the answer to the right agent. Every answer is logged so the next agent does not ask again.
+Asks is a Herdr plugin that turns "an agent is blocked somewhere" into "a decision is waiting for you". It watches every agent in a space, notices when one stops to ask a question or request approval, understands what is being asked, and shows it as a card in a hideable right-hand panel. You answer on the card and Asks delivers the answer to the right agent. Every answer is logged so the next agent does not ask again.
 
 One line: **poll for blocked → read the dialog → classify in the background → show a card → user answers → send-keys or prompt → log it.**
 
@@ -16,7 +16,7 @@ One line: **poll for blocked → read the dialog → classify in the background 
 
 Running six agents across two spaces means six terminals to babysit. The real cost is not watching them work. It is that an agent stalls quietly on a question, or guesses and keeps going. Today the only signals are Herdr's `blocked` status glyph and the `Needs you` section, which tell you *that* an agent stopped, not *what* it wants or whether it matters. To answer, you must focus the terminal, read back through scrollback for context, and type into a dialog you did not see appear.
 
-Herdr already detects the stop. Open questions owns everything after that.
+Herdr already detects the stop. Asks owns everything after that.
 
 ## 3. Goals
 
@@ -28,7 +28,7 @@ Herdr already detects the stop. Open questions owns everything after that.
 
 ## 4. Non-goals (v1)
 
-- Auto-answering anything, including "safe" permission prompts. The human stays in the loop. Herdr's own guidance is to inspect a blocked UI and ask the user before answering; Open questions *is* that step.
+- Auto-answering anything, including "safe" permission prompts. The human stays in the loop. Herdr's own guidance is to inspect a blocked UI and ask the user before answering; Asks *is* that step.
 - Agent supervision, steering, or nudging agents that are not blocked.
 - Changing an agent's status, name, or Herdr's own notification behaviour.
 - Cross-machine aggregation beyond what `herdr agent list` already returns for remote agents.
@@ -40,7 +40,7 @@ Herdr already detects the stop. Open questions owns everything after that.
 
 **Scenario:** Builder in space League hits an `AskUserQuestion` with three options. Security Harness in the same space wants permission to run a shell command. looper in Cyborg finished and asked a free-text question in its last message. The user is heads-down in Horn.
 
-With it installed: the `Open questions` button in the top bar shows `3`. The user opens the panel. Three cards, newest first. The first is the permission prompt, labelled *Approval* with the exact command. One click: Allow. The second is Builder's three options with the agent's own recommendation highlighted. The user picks option B. The third is looper's free-text question; the user types two sentences and presses Enter. Three agents resume. The user never left Horn. `docs/decisions.md` in each workspace gained a line.
+With it installed: the `Asks` button in the top bar shows `3`. The user opens the panel. Three cards, newest first. The first is the permission prompt, labelled *Approval* with the exact command. One click: Allow. The second is Builder's three options with the agent's own recommendation highlighted. The user picks option B. The third is looper's free-text question; the user types two sentences and presses Enter. Three agents resume. The user never left Horn. `docs/decisions.md` in each workspace gained a line.
 
 ## 6. UX
 
@@ -48,9 +48,9 @@ With it installed: the `Open questions` button in the top bar shows `3`. The use
 
 The panel behaves exactly like the shipped **Files** panel in the Herdr desktop app:
 
-- A toggle button **`Open questions`** in the top bar, to the left of `Files`, in the same style (icon + label). When there are pending asks it carries a count badge, e.g. `Open questions 3`. With zero pending it shows no badge.
-- Clicking the button opens the panel as a right-hand column beside the terminal area, pushing the terminal narrower, never overlaying it. Clicking again hides it. Only one of Open questions / Files / Changes is open at a time, matching current behaviour of that button group.
-- **Width:** same width constraint as the Files panel. Match whatever the shipped layout gives Files; on a 1440-pt-wide window it measures roughly 370 pt. Open questions must never exceed the Files panel's max width.
+- A toggle button **`Asks`** in the top bar, to the left of `Files`, in the same style (icon + label). When there are pending asks it carries a count badge, e.g. `Asks 3`. With zero pending it shows no badge.
+- Clicking the button opens the panel as a right-hand column beside the terminal area, pushing the terminal narrower, never overlaying it. Clicking again hides it. Only one of Asks / Files / Changes is open at a time, matching current behaviour of that button group.
+- **Width:** same width constraint as the Files panel. Match whatever the shipped layout gives Files; on a 1440-pt-wide window it measures roughly 370 pt. Asks must never exceed the Files panel's max width.
 - **Hidden by default.** The open/closed state persists per layout across restarts, same as Files.
 - Keyboard: `cmd-shift-a` toggles the panel. Must not collide with an existing binding; install asks before replacing one.
 - The panel is **scoped to the focused space**. Switching spaces swaps the list. A small `All spaces` toggle in the panel header shows everything, grouped by space, for people who want one inbox.
@@ -59,7 +59,7 @@ The panel behaves exactly like the shipped **Files** panel in the Herdr desktop 
 
 ```
 ┌─────────────────────────────────────────┐
-│ Open questions              League  ⋯  │  header: title, space name, menu
+│ Asks                        League  ⋯  │  header: title, space name, menu
 │ 3 pending · 12 answered today           │
 ├─────────────────────────────────────────┤
 │ ● Builder                       2m ago  │  card: agent, age
@@ -105,7 +105,7 @@ The panel behaves exactly like the shipped **Files** panel in the Herdr desktop 
 - **Delivered:** card collapses to a one-line receipt (`Answered "JWT with refresh" · 2m ago`) and leaves the pending list within 3 s. Receipts live in a collapsible `Answered` section at the bottom.
 - **Stale:** the agent left `blocked` before an answer was sent (user answered in the terminal, or the agent timed out). Card collapses to `Resolved in terminal` and leaves the pending list.
 - **Failed:** `send-keys` or `prompt` returned an error. Card stays pending with the error text and a Retry button.
-- **Empty:** "No open questions in League. Agents will appear here when they stop to ask you something."
+- **Empty:** "No asks waiting in League. Agents will appear here when they stop to ask you something."
 
 ### 6.5 Sidebar touch points
 
@@ -116,7 +116,7 @@ The panel behaves exactly like the shipped **Files** panel in the Herdr desktop 
 
 ### 7.1 Detect
 
-- **R1.** Open questions treats an agent as having an ask when Herdr reports state `blocked`. No heuristic parsing of arbitrary output in v1.
+- **R1.** Asks treats an agent as having an ask when Herdr reports state `blocked`. No heuristic parsing of arbitrary output in v1.
 - **R2.** Detection runs in a background service (§9) that polls `herdr agent list --json` every 2 s, or uses `herdr agent wait <agent> --until blocked` per agent when the agent count is small (≤ 8). Implementation picks the cheaper of the two and may switch at runtime.
 - **R3.** An ask is keyed by `(agent address, blocked-since timestamp)`. The same dialog is never shown twice.
 - **R4.** Optional, config-gated: agents that end a turn in `idle` or `done` whose last message ends with a question mark are also surfaced, as kind `QUESTION`. Off by default. This is the only heuristic in v1 and is clearly labelled as such.
@@ -159,14 +159,14 @@ The panel behaves exactly like the shipped **Files** panel in the Herdr desktop 
 - 2026-11-07 22:41 · Builder · DECISION · Which auth strategy for the new API? → JWT with refresh
 ```
 
-- **R17.** The log is append-only and plain markdown so any agent can read it with its normal file tools. Open questions never edits earlier lines.
+- **R17.** The log is append-only and plain markdown so any agent can read it with its normal file tools. Asks never edits earlier lines.
 - **R18.** Dismissed and stale asks are not logged.
 
 ## 8. Naming and copy
 
-- Button and panel title: `Open questions`. Plain noun phrase like `Files` and `Changes`, reads as a count (`Open questions 3`), does not read as a command. Decided 2026-11-09; the mod ids stay `asks` / `tabs-asks` / `spaces-asks`.
+- Button and panel title: `Asks`. Noun, reads as a count (`Asks 3`), does not read as a command. Decided 2026-11-09; the mod ids are `asks` / `tabs-asks` / `spaces-asks`.
 - Kind chips: `APPROVAL`, `DECISION`, `QUESTION`, `UNCLEAR`. Uppercase, 10 px, same pill style as the `unread` badge in herdr-marks.
-- Never say "blocked" to the user. Herdr owns that word for status; Open questions talks about what the agent *wants*.
+- Never say "blocked" to the user. Herdr owns that word for status; Asks talks about what the agent *wants*.
 
 ## 9. Architecture
 
@@ -274,9 +274,9 @@ toast = true
 space_badge = false
 ```
 
-## 13. Open questions
+## 13. Unresolved questions
 
-1. **Name.** Decided: `Open questions` everywhere a person reads it (button, panel, README, recipe, gallery). `Asks` was the working title; `Decisions`, `Resolve`, `Inbox` were considered. A descriptive name needs no trademark check.
+1. **Name.** Decided 2026-11-09: `Asks`, repo `herdr-asks`, gallery id `herdr-asks`. `Asks` was the label for a day; `Decisions`, `Resolve`, `Inbox` were considered.
 2. Can a desktop-app mod add a button to the top-bar group next to `Files` and `Changes`, or only clone a layout? Answer determines §9.2's fallback. Spike first.
 3. Does Herdr emit a plugin event on agent state change? If yes, replace polling. herdr-marks only uses focus events, so assume no until proven.
 4. Per-program key maps for menus: confirm Claude Code's `AskUserQuestion` accepts numeric shortcuts in the current version, and what Codex and Gemini CLI dialogs look like.
@@ -317,7 +317,7 @@ What the v0.1 build does differently from the sections above, and why.
 - **Toasts off by default.** Herdr already posts "Claude Code needs you" for a blocked agent; a second toast was noise. `toast: true` adds one that carries the question (R10 otherwise as written).
 - **Badge.** The count is the shown space's; other spaces show as dim `+N` / `N elsewhere` rather than a red pill.
 - **Verified end to end** on this machine: a Claude Code AskUserQuestion became a DECISION card within 2 s with options numbered from the screen and the recommendation marked; `asks.accept` pressed `1`, the agent answered `Geist (Recommended)`, the card moved to Answered and `docs/decisions.md` gained the line; a permission prompt produced the `kind: permission` report; a free-text answer sent with `hc send --force` was accepted by the dialog; a dialog answered in the terminal turned its card stale.
-- **Open questions answered.** §13 Q2: a mod cannot add a button to the shipped tab bar; the tab bar mod is cloned (`tabs-asks`) and the layout points at it. Q3: no state-change plugin event was found; the engine ticks every 2 s and on every redraw (cheap, since `terminals()` is live). Q4: Claude Code takes the option number directly; Codex and Gemini still unverified.
+- **Unresolved questions answered.** §13 Q2: a mod cannot add a button to the shipped tab bar; the tab bar mod is cloned (`tabs-asks`) and the layout points at it. Q3: no state-change plugin event was found; the engine ticks every 2 s and on every redraw (cheap, since `terminals()` is live). Q4: Claude Code takes the option number directly; Codex and Gemini still unverified.
 - **R4 shipped, on by default.** The user named finished turns that end in prose questions as the main pain, so trailing-question detection is in v0.1 and on by default (`trailing_questions`). It is the one place a model runs for Claude Code: each finished turn with a `?` in the agent's last message is sent to Haiku, which decides whether the agent is waiting on the person. Answers to those cards are sent as messages, not key presses. A message with several questions (a numbered list of nine, say) is one card listing the questions with a single typed answer; the first build offered the questions themselves as clickable options, which would have sent a question back as the answer. Each listed question unfolds the choices the agent gave for it; picks are drafted and sent together as one numbered message.
 - **Space badge shipped.** The spaces list is a clone (`spaces-asks`) with a red count pill per space, fed from the same shared state as the tab-bar button.
 - **Still to do from the plan.** Milestone 2's Codex key map and the GitHub install path, milestone 3's TUI pane, the space badge, and trademark checks before publishing.

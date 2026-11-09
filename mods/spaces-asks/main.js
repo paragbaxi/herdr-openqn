@@ -1,5 +1,5 @@
-// Clone of the shipped spaces mod (herdr-openqn): each space row also shows how many
-// open questions its agents are waiting on, from the asks.state shared by mods/tabs-asks.
+// Clone of the shipped spaces mod (herdr-asks): each space row also shows how many
+// asks its agents are waiting on, from the asks.state shared by mods/tabs-asks.
 // Workspace spaces: stable colored avatars, worktrees under their checkout,
 // grouped by machine when more than one is known. After a space's name, the repo
 // its first terminal is in now, only where unusual: branch, ahead/behind. Agent state lives in the agents list, not here. Click to
@@ -30,7 +30,7 @@ function place(s, ps) {
 const rowHeight = ({ tree }) => (tree ? 28 : 30);
 const where = (s, ps) => JSON.stringify([s.machine ?? null, place(s, ps)]);
 const base = (path) => path.replace(/\/+$/, "").split("/").pop();
-// Open questions waiting in a space (see mods/tabs-asks/state.js for the shape).
+// Asks waiting in a space (see mods/tabs-asks/state.js for the shape).
 function waiting(spaceId) {
   const st = shared("asks.state");
   if (!st || !Array.isArray(st.asks)) return 0;

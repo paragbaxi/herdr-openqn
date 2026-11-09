@@ -276,7 +276,7 @@ space_badge = false
 
 ## 13. Unresolved questions
 
-1. **Name.** Decided 2026-11-09: `Asks`, repo `herdr-agent-ask`, gallery id `herdr-agent-ask`. `Asks` was the label for a day; `Decisions`, `Resolve`, `Inbox` were considered.
+1. **Name.** Decided 2026-11-09: `Asks`, repo `herdr-agent-ask`, gallery id `herdr-agent-ask`. A descriptive two-word label was tried for a day; `Decisions`, `Resolve`, `Inbox` were considered.
 2. Can a desktop-app mod add a button to the top-bar group next to `Files` and `Changes`, or only clone a layout? Answer determines §9.2's fallback. Spike first.
 3. Does Herdr emit a plugin event on agent state change? If yes, replace polling. herdr-marks only uses focus events, so assume no until proven.
 4. Per-program key maps for menus: confirm Claude Code's `AskUserQuestion` accepts numeric shortcuts in the current version, and what Codex and Gemini CLI dialogs look like.

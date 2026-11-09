@@ -1,4 +1,4 @@
-# Asks
+# Asks: every question your agents ask, in one Herdr panel
 
 ![Asks panel](preview.png)
 

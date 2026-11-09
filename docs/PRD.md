@@ -2,7 +2,7 @@
 
 **Status:** v0.1 built and installed · 2026-11-07 (see §17 for what changed during the build)
 **Owner:** Sachin Philip
-**Name:** the button and panel say **Open questions** (configurable `label`); the code and mod folders are `asks` / `tabs-asks`. A public name for the repo is still open, see §13.
+**Name:** the button and panel say **Open questions** (configurable `label`); the code and mod folders are `asks` / `tabs-asks` / `spaces-asks`. Name decided 2026-11-09, see §13.
 
 ---
 

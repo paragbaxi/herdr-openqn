@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Installs the Asks mods into the Herdr desktop app, clones the shown layout as `asks` with
 // the Asks panel and tab-bar button, and binds cmd-shift-a. Idempotent; --uninstall reverses it.
-//   node herdr-app/install.mjs [--layout <source>] [--as asks] [--no-switch] [--uninstall]
+//   node open-questions/install.mjs [--layout <source>] [--as asks] [--no-switch] [--uninstall]
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";

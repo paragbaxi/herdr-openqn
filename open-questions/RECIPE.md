@@ -1,10 +1,20 @@
-# Asks: decisions waiting on you
+# Open questions
 
-A right-hand panel in the Herdr desktop app listing every dialog an agent in the shown space
-is waiting on, as a card you answer from there, plus an `Asks` button with a count in the tab
-bar. Answers are pressed into the agent's terminal through `hc`.
+A right-hand panel in the Herdr desktop app listing every question an agent in the shown space
+is waiting on, as a card you answer from there: permission dialogs, option menus, and plain-text
+questions at the end of a finished turn. An `Open questions` button with a count sits in the tab
+bar, and each space in the sidebar shows how many it has. Answers go into the agent's terminal
+through `hc`.
 
-![Asks](preview.png)
+![Open questions](preview.png)
+
+**To add it:** run `node install.mjs` from this folder (Node 18+, the Herdr app open). It copies
+the three mods, clones the shown layout as `asks`, points that layout's tab bar at `tabs-asks`
+and its spaces list at `spaces-asks`, adds the `asks` panel block, binds `cmd-shift-a` under
+`layout:asks` (the `keys.json` here is the same key as a `global` snippet) and switches to the
+layout. `--uninstall` reverses it. Copying the mods alone shows nothing: the shipped tab bar
+cannot grow a button, so the layout must point at the clones. The mods run `hc` (read, keys,
+send), `claude -p` for plain-text questions, and `sh -c` to append to `docs/decisions.md`.
 
 ## What you see
 
@@ -34,6 +44,12 @@ bar. Answers are pressed into the agent's terminal through `hc`.
 - Under the cards, a foldable `Answered N` list: one 26 px row per answered, stale or failed
   ask: a check (or x), the agent, `→ answer` or the note (`Resolved in terminal`, `Agent
   closed`), the age. Clicking a row focuses that agent.
+- A card for a message with several questions lists them as numbered rows under a one-line
+  summary. Clicking a row unfolds the choices the agent gave for that question (its recommended
+  one marked) and an `Other answer…` line; a pick turns the row's badge `t.accent` and shows
+  `→ <answer>` under it. `Send answers (k/n)` appears once something is drafted.
+- In the sidebar's spaces list, after a space's name: a 16 px red pill with the number of open
+  questions waiting in that space (also in the narrow rail).
 - Empty: `No open questions in <space>. Agents show up here when they stop to ask you something.`
 
 ## How it behaves
@@ -55,7 +71,11 @@ bar. Answers are pressed into the agent's terminal through `hc`.
   person (`asks`), the main question (`(+N more)` for several), any options it laid out, and a
   context line. `asks` true and confidence ≥ 0.6 make a `QUESTION` card with `delivery: "send"`.
   It stays open while the agent is idle or done on that same turn; a new turn (the person
-  answered in the terminal) makes it `Answered in terminal`.
+  answered in the terminal) makes it `Answered in terminal`. The person's last prompt is the
+  last `❯` line not sitting under a rule (the input box at the bottom is skipped).
+- Several questions in one message come back from the model as `questions: [{text, options,
+  recommended}]` and no top-level options (`normalize()` enforces it). Picks are drafts in the
+  panel; `Send answers` delivers `1. <question> → <answer>` lines as one `hc send` message.
 - Other agents: numbered options on screen (`1.`, `❯ 2.` …) make a `DECISION` (`APPROVAL` when a
   `Yes` and a `No` are among them). With none, and `classify` not `off`, `claude -p
   --output-format json --json-schema … --model haiku` classifies the last 45 lines; its options
@@ -90,8 +110,12 @@ bar. Answers are pressed into the agent's terminal through `hc`.
   always present (the enabled list is `shared("workspace.panels")` plus `asks`), the badge,
   `togglePanel`, a `nextCommand()` loop (`toggle`, `open`), and an `Engine` created in `init`,
   ticked by `cx.timer.every(2000)` and from `render`. Its `win-*.svg` are copies of the shipped ones.
-- `mods/tabs-asks/engine.js`: `parseReport`, `parseScreen`, `Engine.tick` (diff `terminals()`
-  against the shared state), `Engine.enrich` (screen read, model fallback), `Engine.classify`.
+- `mods/tabs-asks/engine.js`: `parseReport`, `parseScreen`, `parseLastMessage`, `normalize`,
+  `Engine.tick` (diff `terminals()` against the shared state; finished-turn pass),
+  `Engine.enrich` (screen read, model fallback), `Engine.checkTurn`, `Engine.classify` (two
+  prompt modes, `dialog` and `message`), `Engine.recheck` (`tabs-asks.recheck`).
+- `mods/spaces-asks/main.js`: Herdr's shipped `spaces` mod (0.1.13) with `waiting(spaceId)` over
+  `shared("asks.state")` and a count pill in `row` and `compact`.
 - `mods/asks/main.js`: the panel. `answer`, `sendText`, `deliver`, `log`, `retry`, `open`, `card`,
   `receipt`, `render`. One `InputState` made in `init`, shown under whichever card has
   `Other answer` open.
@@ -102,17 +126,20 @@ bar. Answers are pressed into the agent's terminal through `hc`.
   terminal's title, else the program).
 - Ask record: `id, address, pane, space, space_name, agent, program{key,name,icon,tint}, app, cwd,
   turn, msg, detected_at, state (pending|sending|delivered|failed|stale|dismissed), kind, question,
-  options[{n,label,detail}], recommended, context, raw, source (report|screen|model|…),
-  confidence, enriched, answer, chosen, answered_at, ended_at, error, note`.
+  options[{n,label,detail}], recommended, questions[{text, options[{n,label}], recommended}],
+  context, raw, source (report|screen|model|…), confidence, enriched, delivery (keys|send),
+  answer, chosen, answered_at, ended_at, error, note`.
 - `herdr` functions: `terminals`, `agents`, `spaces`, `focused`, `panes`, `layout`, `shared`,
   `setShared`, `run` (`layout.show|hide|select`, `pane.focus`, `agent.focus`), `hc` (`read`,
   `get`, `keys`, `send`), `exec` (`claude -p …`, `sh -c … >> decisions.md`), `notify`,
   `nextCommand`, `readTextFile`, `appHome`, `theme`, `settings`, `window`, `openOverlay` (the
   shipped tab menus).
 - Layout: the shown layout cloned as `asks` (`layout.clone`), its tab-bar block's `content.mod`
-  set to `tabs-asks`, and `{ "id": "asks", "type": "block", "content": { "mod": "asks" } }` added to
-  the `panel-body` stack. `keys.json`: `"layout:asks": { "cmd-shift-a": "tabs-asks.toggle" }` plus
-  the source layout's own `layout:` keys. `install.mjs` does all of this and `--uninstall`.
+  set to `tabs-asks`, its spaces block's to `spaces-asks`, and `{ "id": "asks", "type": "block",
+  "content": { "mod": "asks" } }` added to the `panel-body` stack. `keys.json`: `"layout:asks":
+  { "cmd-shift-a": "tabs-asks.toggle" }` plus the source layout's own `layout:` keys (the
+  `keys.json` in this folder is the gallery snippet: the same key under `global`). `install.mjs`
+  does all of this and `--uninstall`.
 - Icons: `asks.svg`, `check.svg`, `x.svg`, `terminal.svg`, `send.svg` (Lucide-style, stroke
   `currentColor`, drawn with `svg()` so they take the text colour).
 
@@ -168,8 +195,8 @@ bar. Answers are pressed into the agent's terminal through `hc`.
 
 ## Done when
 
-- `herdr-app check` passes for `mods/asks` and `mods/tabs-asks`; `herdr-app status` lists no
-  errors and `"layout": "asks"`.
+- `herdr-app check` passes for `mods/asks`, `mods/tabs-asks` and `mods/spaces-asks`;
+  `herdr-app status` lists no errors and `"layout": "asks"`.
 - The tab bar shows `Open questions` left of `Files`; clicking it opens the right panel at the Files
   width; clicking again hides it; `cmd-shift-a` does the same.
 - With Claude Code in a space, `hc send <t> "Use the AskUserQuestion tool to ask which colour …
@@ -186,4 +213,8 @@ bar. Answers are pressed into the agent's terminal through `hc`.
   list of questions and, within ~10 s, a `QUESTION` card appears with `Answer`; typing a reply and
   Enter sends it and the agent starts working.
 - From another space the button reads `Open questions 1 elsewhere` (no red pill); `All` in the panel lists
-  the ask with its space name.
+  the ask with its space name; the sidebar shows a red `1` after the space that has it.
+- An agent asked for "three questions as plain text, numbered, with three options each and a
+  recommendation" gives one `QUESTION` card with three numbered rows; clicking row 2 unfolds its
+  three options with `recommends` on one; picking one shows `→ <option>` and `Send answers (1/3)`;
+  sending puts one message with the `2. … → …` line into the agent.

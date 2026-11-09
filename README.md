@@ -1,6 +1,6 @@
 # Open questions for Herdr
 
-![Open questions panel](open-questions/preview.png)
+![Open questions panel](preview.png)
 
 Every decision your agents are waiting on, in one hideable panel per space. When an agent
 stops to ask a question or request approval, it shows up as a card with the agent's own
@@ -57,18 +57,18 @@ Needs the Herdr desktop app (0.1.13 or later) and Node 18+.
 
 ```sh
 git clone https://github.com/sachin-philip/herdr-openqn
-node herdr-openqn/open-questions/install.mjs
+node herdr-openqn/install.mjs
 ```
 
 The installer copies two mods into `~/.config/herdr-app/mods/`, clones your shown layout
 as `asks` with the panel and button added, binds `cmd-shift-a` under `layout:asks`, runs
 `herdr-app check` on both mods and switches to the new layout. `cmd-shift-l` switches back;
-`node open-questions/install.mjs --uninstall` removes everything.
+`node herdr-openqn/install.mjs --uninstall` removes everything.
 
-The `open-questions/` folder is laid out the way the [Herdr gallery](https://herdr.dev/gallery/)
-expects a mod (`mods/`, `RECIPE.md`, `preview.png`, a `keys.json` snippet), so an agent can also
-add it from there; the recipe tells it to run the installer, because the layout has to point at
-the cloned tab bar and spaces list.
+The repo is laid out the way the [Herdr gallery](https://herdr.dev/gallery/) expects a mod
+(`mods/`, `RECIPE.md`, `preview.png`, a `keys.json` snippet at the root), so an agent can also add
+it from there; the recipe tells it to run the installer, because the layout has to point at the
+cloned tab bar and spaces list.
 
 Or ask an agent in a Herdr terminal:
 
@@ -121,9 +121,9 @@ Keys: `tabs-asks.toggle` shows or hides the panel, `tabs-asks.open` opens it,
 ## Develop
 
 ```sh
-herdr-app check open-questions/mods/asks
-herdr-app check open-questions/mods/tabs-asks
-herdr-app check open-questions/mods/spaces-asks
+herdr-app check mods/asks
+herdr-app check mods/tabs-asks
+herdr-app check mods/spaces-asks
 cp -R herdr-app/mods/asks/. ~/.config/herdr-app/mods/asks/      # the app reloads on save
 ```
 

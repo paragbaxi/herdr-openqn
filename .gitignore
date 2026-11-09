@@ -1,5 +1,5 @@
 node_modules/
 .DS_Store
 *.before-*
-open-questions/mods/*/gpui-kit.d.ts
-open-questions/mods/*/jsconfig.json
+mods/*/gpui-kit.d.ts
+mods/*/jsconfig.json

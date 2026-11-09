@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Installs the Open questions mods into the Herdr desktop app, clones the shown layout as `asks` with
 // the Open questions panel and tab-bar button, and binds cmd-shift-a. Idempotent; --uninstall reverses it.
-//   node open-questions/install.mjs [--layout <source>] [--as asks] [--no-switch] [--uninstall]
+//   node install.mjs [--layout <source>] [--as asks] [--no-switch] [--uninstall]
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";

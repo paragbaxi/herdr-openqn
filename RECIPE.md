@@ -1,20 +1,19 @@
 # Open questions
 
-A right-hand panel in the Herdr desktop app listing every question an agent in the shown space
-is waiting on, as a card you answer from there: permission dialogs, option menus, and plain-text
-questions at the end of a finished turn. An `Open questions` button with a count sits in the tab
-bar, and each space in the sidebar shows how many it has. Answers go into the agent's terminal
-through `hc`.
+A right-hand panel in the Herdr desktop app with every question an agent in the shown space is
+waiting on, as a card you answer from there: permission dialogs, option menus, and plain-text
+questions at the end of a finished turn. An Open questions button with a count sits in the tab
+bar beside Files, and each space in the sidebar shows how many it has. Answers go straight into
+the agent's terminal, and every answer is logged for the next agent.
 
 ![Open questions](preview.png)
 
-**To add it:** run `node install.mjs` from this folder (Node 18+, the Herdr app open). It copies
-the three mods, clones the shown layout as `asks`, points that layout's tab bar at `tabs-asks`
-and its spaces list at `spaces-asks`, adds the `asks` panel block, binds `cmd-shift-a` under
-`layout:asks` (the `keys.json` here is the same key as a `global` snippet) and switches to the
-layout. `--uninstall` reverses it. Copying the mods alone shows nothing: the shipped tab bar
-cannot grow a button, so the layout must point at the clones. The mods run `hc` (read, keys,
-send), `claude -p` for plain-text questions, and `sh -c` to append to `docs/decisions.md`.
+This file is the brief: enough to build it from an empty folder. The files next to it are one
+build of it. To add that build, run the installer in this folder (`node install.mjs`) rather
+than copying the mod folders: the tab bar and the spaces list are clones of Herdr's own, and
+the layout has to point at them before the button and the counts appear. Before adding it,
+know that it runs `hc` to read and answer terminals, `claude -p` for plain-text questions, and
+a shell to append to `docs/decisions.md`.
 
 ## What you see
 
@@ -139,14 +138,18 @@ send), `claude -p` for plain-text questions, and `sh -c` to append to `docs/deci
   "content": { "mod": "asks" } }` added to the `panel-body` stack. `keys.json`: `"layout:asks":
   { "cmd-shift-a": "tabs-asks.toggle" }` plus the source layout's own `layout:` keys (the
   `keys.json` in this folder is the gallery snippet: the same key under `global`). `install.mjs`
-  does all of this and `--uninstall`.
+  (Node 18+, the Herdr app open) does all of this and `--uninstall` reverses it.
 - Icons: `asks.svg`, `check.svg`, `x.svg`, `terminal.svg`, `send.svg` (Lucide-style, stroke
   `currentColor`, drawn with `svg()` so they take the text colour).
 
 ## Watch out
 
+- Copying `mods/` alone shows nothing: the shipped tab bar cannot grow a button and the shipped
+  spaces list cannot grow a pill, so the layout must point at `tabs-asks` and `spaces-asks`.
+  That is what the installer does; by hand it is three edits to a cloned layout file.
 - The layout must have a tab-bar block (`content.mod: "tabs"`) and the `panel` / `panel-body`
   nodes; `main` and clones of it do. `terminals` and `win98` don't, and the installer stops.
+  Without a spaces block (`content.mod: "spaces"`) the per-space count is skipped.
 - A mod copy starts the first time it is shown. That is why detection is in the tab bar, not in
   the panel: a hidden stack child never runs until opened.
 - `<mod>.<command>` reaches shown copies only: `asks.accept` works while the panel is open;

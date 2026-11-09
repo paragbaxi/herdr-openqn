@@ -59,6 +59,12 @@ Nothing is ever answered without you clicking it.
 
 ## Install
 
+**As a layout** (the gallery way): ask your agent to read `~/.config/herdr-app/AGENTS.md` and add
+the layout at `herdr.dev/layouts/sachin-philip/herdr-openqn`. It copies `layouts/open-questions.json`
+and the three mods, merges `keys.json`, and switches to the layout. `ctrl-shift-l` switches back.
+
+**Keeping your own layout:**
+
 Needs the Herdr desktop app (0.1.13 or later) and Node 18+.
 
 ```sh
@@ -71,10 +77,10 @@ as `asks` with the panel and button added, binds `cmd-shift-a` under `layout:ask
 `herdr-app check` on both mods and switches to the new layout. `cmd-shift-l` switches back;
 `node herdr-openqn/install.mjs --uninstall` removes everything.
 
-The repo is laid out the way the [Herdr gallery](https://herdr.dev/gallery/) expects a mod
-(`mods/`, `RECIPE.md`, `preview.png`, a `keys.json` snippet at the root), so an agent can also add
-it from there; the recipe tells it to run the installer, because the layout has to point at the
-cloned tab bar and spaces list.
+The repo is laid out the way the [Herdr gallery](https://herdr.dev/gallery/) expects a layout
+(`layouts/open-questions.json`, `mods/`, `RECIPE.md`, `preview.png`, a `keys.json` snippet at the
+root). The layout is Herdr's main layout with the tab bar and spaces list pointed at the two
+clones and the panel added, which is also exactly what the installer does to a clone of yours.
 
 Or ask an agent in a Herdr terminal:
 

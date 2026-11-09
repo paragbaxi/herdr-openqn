@@ -11,11 +11,12 @@ its own count.
 ![Open questions](preview.png)
 
 This file is the brief: enough to build it from an empty folder. The files next to it are one
-build of it. To add that build, run the installer in this folder (`node install.mjs`) rather
-than copying the mod folders: the tab bar and the spaces list are clones of Herdr's own, and
-the layout has to point at them before the button and the counts appear. Before adding it,
-know that it runs `hc` to read and answer terminals, `claude -p` for plain-text questions, and
-a shell to append to `docs/decisions.md`.
+build of it, shared as a layout: `layouts/open-questions.json` is Herdr's main layout with the
+tab bar and spaces list pointed at the two clones and the panel added, so copying the layout
+and the three mods and switching to it is all it takes. To keep a layout of your own instead,
+run `node install.mjs`, which clones the layout you are showing and makes the same three
+changes to the clone. Before adding it, know that it runs `hc` to read and answer terminals,
+`claude -p` for plain-text questions, and a shell to append to `docs/decisions.md`.
 
 ## What you see
 
@@ -135,12 +136,13 @@ a shell to append to `docs/decisions.md`.
   `get`, `keys`, `send`), `exec` (`claude -p …`, `sh -c … >> decisions.md`), `notify`,
   `nextCommand`, `readTextFile`, `appHome`, `theme`, `settings`, `window`, `openOverlay` (the
   shipped tab menus).
-- Layout: the shown layout cloned as `asks` (`layout.clone`), its tab-bar block's `content.mod`
-  set to `tabs-asks`, its spaces block's to `spaces-asks`, and `{ "id": "asks", "type": "block",
-  "content": { "mod": "asks" } }` added to the `panel-body` stack. `keys.json`: `"layout:asks":
-  { "cmd-shift-a": "tabs-asks.toggle" }` plus the source layout's own `layout:` keys (the
-  `keys.json` in this folder is the gallery snippet: the same key under `global`). `install.mjs`
-  (Node 18+, the Herdr app open) does all of this and `--uninstall` reverses it.
+- Layout `layouts/open-questions.json`: Herdr's shipped `main` (0.1.14) with the tab-bar block's
+  `content.mod` set to `tabs-asks`, the spaces block's to `spaces-asks`, and `{ "id": "asks",
+  "type": "block", "content": { "mod": "asks" } }` added to the `panel-body` stack (sidebar 268 px,
+  panel 368 px, min 280, max 900, hidden). `keys.json`: `"layout:open-questions": { "cmd-shift-a":
+  "tabs-asks.toggle" }` (and the same under `global`). `install.mjs` (Node 18+, the Herdr app
+  open) makes the same three changes to a clone of the shown layout, named `asks`, carries that
+  layout's keys along, and `--uninstall` reverses it.
 - Icons: `asks.svg`, `check.svg`, `x.svg`, `terminal.svg`, `send.svg` (Lucide-style, stroke
   `currentColor`, drawn with `svg()` so they take the text colour).
 

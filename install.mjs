@@ -24,7 +24,7 @@ const run = (cmd, params) => { const out = app("do", cmd, ...Object.entries(para
 const find = (node, pred) => { if (!node) return null; if (pred(node)) return node; for (const c of node.children ?? []) { const f = find(c, pred); if (f) return f; } return null; };
 // Our folders: the panel and tab bar carry state.js + asks.svg; the spaces clone says so in its header.
 const ours = (dir) => (fs.existsSync(path.join(dir, "state.js")) && fs.existsSync(path.join(dir, "asks.svg")))
-  || (() => { try { return fs.readFileSync(path.join(dir, "main.js"), "utf8").slice(0, 400).includes("herdr-asks"); } catch { return false; } })();
+  || (() => { try { return fs.readFileSync(path.join(dir, "main.js"), "utf8").slice(0, 400).includes("herdr-agent-ask"); } catch { return false; } })();
 
 if (!fs.existsSync(HOME)) { console.error(`No Herdr app home at ${HOME}. Open the Herdr app once first.`); process.exit(1); }
 const shared = readJson(path.join(HOME, "shared.json"), {});

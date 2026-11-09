@@ -60,7 +60,7 @@ Nothing is ever answered without you clicking it.
 ## Install
 
 **As a layout** (the gallery way): ask your agent to read `~/.config/herdr-app/AGENTS.md` and add
-the layout at `herdr.dev/layouts/sachin-philip/herdr-asks`. It copies `layouts/asks.json`
+the layout at `herdr.dev/layouts/sachin-philip/herdr-agent-ask`. It copies `layouts/asks.json`
 and the three mods, merges `keys.json`, and switches to the layout. `ctrl-shift-l` switches back.
 
 **Keeping your own layout:**
@@ -68,14 +68,14 @@ and the three mods, merges `keys.json`, and switches to the layout. `ctrl-shift-
 Needs the Herdr desktop app (0.1.13 or later) and Node 18+.
 
 ```sh
-git clone https://github.com/sachin-philip/herdr-asks
-node herdr-asks/install.mjs
+git clone https://github.com/sachin-philip/herdr-agent-ask
+node herdr-agent-ask/install.mjs
 ```
 
 The installer copies two mods into `~/.config/herdr-app/mods/`, clones your shown layout
 as `asks` with the panel and button added, binds `cmd-shift-a` under `layout:asks`, runs
 `herdr-app check` on both mods and switches to the new layout. `cmd-shift-l` switches back;
-`node herdr-asks/install.mjs --uninstall` removes everything.
+`node herdr-agent-ask/install.mjs --uninstall` removes everything.
 
 The repo is laid out the way the [Herdr gallery](https://herdr.dev/gallery/) expects a layout
 (`layouts/asks.json`, `mods/`, `RECIPE.md`, `preview.png`, a `keys.json` snippet at the
@@ -85,7 +85,7 @@ clones and the panel added, which is also exactly what the installer does to a c
 Or ask an agent in a Herdr terminal:
 
 ```
-Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/sachin-philip/herdr-asks
+Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/sachin-philip/herdr-agent-ask
 Follow its RECIPE.md.
 ```
 

@@ -1,4 +1,4 @@
-// Clone of the shipped spaces mod (herdr-asks): each space row also shows how many
+// Clone of the shipped spaces mod (herdr-agent-ask): each space row also shows how many
 // asks its agents are waiting on, from the asks.state shared by mods/tabs-asks.
 // Workspace spaces: stable colored avatars, worktrees under their checkout,
 // grouped by machine when more than one is known. After a space's name, the repo

@@ -1,6 +1,6 @@
 # Asks: every question your agents ask, in one Herdr panel
 
-![Asks panel](preview.png?v=0.2.2)
+![Asks panel](https://raw.githubusercontent.com/sachin-philip/herdr-agent-ask/8d6e2ec/preview.png)
 
 Every question your agents ask in a space, in one side panel. Run several agents and the
 questions pile up in different terminals: one stops at a permission dialog, one offers a menu

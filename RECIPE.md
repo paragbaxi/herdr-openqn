@@ -1,10 +1,12 @@
 # Open questions
 
-A right-hand panel in the Herdr desktop app with every question an agent in the shown space is
-waiting on, as a card you answer from there: permission dialogs, option menus, and plain-text
-questions at the end of a finished turn. An Open questions button with a count sits in the tab
-bar beside Files, and each space in the sidebar shows how many it has. Answers go straight into
-the agent's terminal, and every answer is logged for the next agent.
+Every question your agents ask in a space, in one side panel. Whether an agent stops at a
+permission dialog, offers a menu of options, or simply ends its turn with a plain-text question,
+it appears here as a card the moment it happens, so you see what every agent is waiting on and
+keep track of the space as a whole without opening each terminal. Answer on the card and the
+answer goes straight into that agent's terminal; each answer is logged for the next agent. An
+Open questions button in the tab bar counts what is waiting, and each space in the sidebar shows
+its own count.
 
 ![Open questions](preview.png)
 

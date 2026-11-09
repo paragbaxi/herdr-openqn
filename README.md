@@ -2,10 +2,16 @@
 
 ![Open questions panel](preview.png)
 
-Every decision your agents are waiting on, in one hideable panel per space. When an agent
-stops to ask a question or request approval, it shows up as a card with the agent's own
-options. You answer on the card and the panel presses the keys in that agent's terminal. Each
-answer is appended to `docs/decisions.md` in the agent's workspace so the next agent can read it.
+Every question your agents ask in a space, in one side panel. Run several agents and the
+questions pile up in different terminals: one stops at a permission dialog, one offers a menu
+of options, one simply ends its turn with a paragraph that asks you something. All of them
+appear in the panel as cards the moment they happen, plain-text questions included, so you
+see what every agent is waiting on and keep track of the space as a whole without opening
+each terminal.
+
+Answer on the card and the answer goes straight into that agent's terminal: a key press for a
+dialog, a message for a plain-text question. Each answer is appended to `docs/decisions.md` in
+the agent's workspace so the next agent can read it instead of asking again.
 
 **Status:** v0.1, Herdr desktop app only. The TUI plugin is planned (see `docs/PRD.md`).
 

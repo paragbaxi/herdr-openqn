@@ -20,7 +20,7 @@ send), `claude -p` for plain-text questions, and `sh -c` to append to `docs/deci
 
 - In the tab bar, left of `Files`: a 26 px button, speech-bubble icon (`mods/tabs-asks/asks.svg`)
   and the words `Open questions` (the `label` setting), styled like the Files and Changes buttons (`t.selected` when its panel
-  shows). When asks wait in the shown space, a 16 px red pill (`theme().blocked` on
+  shows). When questions wait in the shown space, a 16 px red pill (`theme().blocked` on
   `theme().background`, 10.5 px semibold) with the count; when only other spaces have some, dim
   text `+N` or `N elsewhere`.
 - The panel is a child of the layout's existing `panel-body` stack, so it opens where Files
@@ -94,9 +94,9 @@ send), `claude -p` for plain-text questions, and `sh -c` to append to `docs/deci
 - Delivered: the card collapses into the Answered list and one line is appended to
   `<agent cwd>/docs/decisions.md`:
   `- 2026-11-07 22:41 · asks-test · DECISION · Which font should the heading use? → Geist (Recommended)`.
-  Dismissed and stale asks are not logged.
+  Dismissed and stale cards are not logged.
 - A pending ask whose agent is no longer blocked, shows another dialog, or is gone becomes stale
-  (`Resolved in terminal` / `Agent closed`). Finished asks are kept 24 h, at most 60 in all.
+  (`Resolved in terminal` / `Agent closed`). Finished cards are kept 24 h, at most 60 in all.
 - Key commands: `tabs-asks.toggle` (bound to `cmd-shift-a` under `layout:asks`), `tabs-asks.open`,
   `asks.accept` (answer the newest waiting ask in the shown space with its recommended option).
 - Toasts: off by default (Herdr posts its own "needs you"); `toast: true` in
@@ -155,7 +155,7 @@ send), `claude -p` for plain-text questions, and `sh -c` to append to `docs/deci
   there is no parent terminal, so the text arrives bare. `notes = false` in
   `~/.config/herdr-core/config.toml` turns the tags off everywhere.
 - A person can answer the dialog in the terminal while a card is open; the pre-send check and the
-  2 s tick turn such cards stale. A key pressed by Asks after the dialog closed would land in the
+  2 s tick turn such cards stale. A key pressed by the panel after the dialog closed would land in the
   agent's prompt line, which is why the check happens right before `hc keys`.
 - Claude Code's permission dialog option 2 is long (`Yes, and switch to accept edits … (shift+tab)`):
   it is shown truncated with the full text in the tooltip, never shortened in the data.

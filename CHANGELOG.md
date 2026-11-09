@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2 · 2026-11-10
+
+- **Preview, take two.** The product shot now shows the options on every card: the plain-text
+  question's choices, the approval's Yes / Yes, and accept edits / No, and the payment menu.
+
 ## 0.2.1 · 2026-11-10
 
 - **New preview.** A product shot of the panel with all three card kinds (a plain-text

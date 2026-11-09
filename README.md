@@ -13,7 +13,7 @@ Answer on the card and the answer goes straight into that agent's terminal: a ke
 dialog, a message for a plain-text question. Each answer is appended to `docs/decisions.md` in
 the agent's workspace so the next agent can read it instead of asking again.
 
-**Version:** 0.2.0 (see `CHANGELOG.md`). Herdr desktop app only; the TUI plugin is planned (see `docs/PRD.md`).
+**Version:** 0.2.1 (see `CHANGELOG.md`). Herdr desktop app only; the TUI plugin is planned (see `docs/PRD.md`).
 
 ## What you get
 

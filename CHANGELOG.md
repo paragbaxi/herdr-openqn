@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 · 2026-11-10
+
+- **New preview.** A product shot of the panel with all three card kinds (a plain-text
+  question, an approval, an option menu) and the Asks button; it is the README header and the
+  gallery picture.
+
 ## 0.2.0 · 2026-11-09
 
 - **Named Asks.** Button, panel, README, recipe and gallery entry all say Asks. The default

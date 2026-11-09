@@ -4,8 +4,9 @@ Every question your agents ask in a space, in one side panel. Whether an agent s
 permission dialog, offers a menu of options, or simply ends its turn with a plain-text question,
 it appears here as a card the moment it happens, so you see what every agent is waiting on and
 keep track of the space as a whole without opening each terminal. Answer on the card and the
-answer goes straight into that agent's terminal; each answer is logged for the next agent. An Asks button in the tab bar counts what is waiting, and each space in the sidebar shows
-its own count.
+answer goes straight into that agent's terminal; each answer is logged for the next agent. An
+Asks button in the tab bar counts what is waiting, and each space in the sidebar shows its own
+count.
 
 ![Asks](preview.png)
 

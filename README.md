@@ -107,7 +107,8 @@ false` keeps it to dialogs only; `classify: "off"` never calls a model.
   "model": "haiku",
   "trailing_questions": true,
   "toast": false,
-  "debug": false
+  "debug": false,
+  "group_spaces_by_machine": true
 }
 ```
 
@@ -116,6 +117,9 @@ false` keeps it to dialogs only; `classify: "off"` never calls a model.
 - `classify`: `auto` (model only when the report and screen say nothing usable), `always`
   (also adds a context line for parsed asks), `off` (never call a model).
 - `trailing_questions`: check every finished turn for a plain-text question (needs the model).
+- `group_spaces_by_machine`: once another machine is added, the spaces list puts a header per
+  machine over its spaces, as Herdr's own list does; `false` keeps one flat list with no
+  headers.
 
 The installer puts three mods in place: `asks` (the panel), `tabs-asks` (the tab bar with the
 button and the detection engine) and `spaces-asks` (the spaces list with the per-space count).

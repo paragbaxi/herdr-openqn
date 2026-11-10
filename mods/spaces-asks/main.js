@@ -1,13 +1,14 @@
 // Clone of the shipped spaces mod (herdr-agent-ask): each space row also shows how many
 // asks its agents are waiting on, from the asks.state shared by mods/tabs-asks.
 // Workspace spaces: stable colored avatars, worktrees under their checkout,
-// grouped by machine when more than one is known. After a space's name, the repo
+// grouped by machine when more than one is known (`group_spaces_by_machine: false` in
+// asks.json: one flat list). After a space's name, the repo
 // its first terminal is in now, only where unusual: branch, ahead/behind. Agent state lives in the agents list, not here. Click to
 // switch, right-click for its menu, drag to reorder.
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout } from "herdr";
+import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout, readTextFile, appHome } from "herdr";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -76,6 +77,19 @@ export default class Spaces extends View {
     this.folded = new Set(JSON.parse(localStorage.getItem("machines.folded") ?? "[]"));
     this.refreshMachines(cx);
     cx.timer.every(15000, cx => this.refreshMachines(cx));
+    // asks.json: `group_spaces_by_machine: false` gives one flat list, no header per machine.
+    // Read again every 30 s, like the other two mods' config.
+    this.group = true;
+    const config = (cx) => cx.spawn(async (cx) => {
+      const was = this.group;
+      try {
+        const text = await readTextFile(`${appHome()}/asks.json`);
+        this.group = (text ? JSON.parse(text) : {}).group_spaces_by_machine !== false;
+      } catch { this.group = true; }
+      if (this.group !== was) cx.notify();
+    });
+    config(cx);
+    cx.timer.every(30000, config);
     // `git status` walks the whole tree, on another machine a process there:
     // only when its answer could have changed (see `due`).
     cx.timer.every(250, (cx) => this.checkNew(cx));
@@ -304,7 +318,8 @@ export default class Spaces extends View {
     return out.filter(r => this.shown.has(r.w.id));
   }
 
-  // The rows, under a header per machine once one isn't this computer.
+  // The rows, under a header per machine once one isn't this computer, unless
+  // asks.json turns grouping off.
   grouped(t, collapsed) {
     const rows = this.ordered();
     const draw = (r) => (collapsed ? this.compact(r, t) : this.row(r, t));
@@ -315,7 +330,7 @@ export default class Spaces extends View {
         || spaces().some(s => (s.machine ?? null) === m && !this.shown.has(s.id));
     };
     const loadingRow = m => div().id(`machine-loading-${m ?? "local"}`).h(28).flex_none().px(8).text_size(12).text_color(t.dim).child(collapsed ? "…" : "Loading…");
-    if (!remote.length) return loading(null) && !rows.length ? [loadingRow(null)] : rows.map(draw);
+    if (!remote.length || !this.group) return loading(null) && !rows.length ? [loadingRow(null)] : rows.map(draw);
     const machineNames = [null, ...remote];
     return machineNames.flatMap((m) => {
       const mine = rows.filter((r) => (r.w.machine ?? null) === m);

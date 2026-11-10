@@ -117,7 +117,8 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   `Engine.enrich` (screen read, model fallback), `Engine.checkTurn`, `Engine.classify` (two
   prompt modes, `dialog` and `message`), `Engine.recheck` (`tabs-asks.recheck`).
 - `mods/spaces-asks/main.js`: Herdr's shipped `spaces` mod (0.1.13) with `waiting(spaceId)` over
-  `shared("asks.state")` and a count pill in `row` and `compact`.
+  `shared("asks.state")` and a count pill in `row` and `compact`; `grouped` skips the machine
+  headers when `group_spaces_by_machine` is `false` in asks.json (read in `init`, every 30 s).
 - `mods/asks/main.js`: the panel. `answer`, `sendText`, `deliver`, `log`, `retry`, `open`, `card`,
   `receipt`, `render`. One `InputState` made in `init`, shown under whichever card has
   `Other answer` open.

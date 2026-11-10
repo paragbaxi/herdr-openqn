@@ -1,0 +1,3 @@
+- 2026-11-10 21:05 · stab · QUESTION · Should the tests use vitest or jest? → vitest
+- 2026-11-10 21:05 · stab · DECISION · Which package manager should the project use: npm, pnpm, or bun? → pnpm (Recommended)
+- 2026-11-10 21:06 · stab · QUESTION · Should CI run on every push, or only on pull requests? → Only pull requests

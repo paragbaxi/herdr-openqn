@@ -1,7 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 · 2026-11-10
 
+- **Flat spaces list** (PR #3, thanks paragbaxi). `group_spaces_by_machine: false` in
+  `asks.json` drops the header per machine once a second machine is added and shows one list.
+  The default keeps the headers.
+- **Installer** recognises its own older copy of the spaces mod after the repo rename, instead
+  of refusing to update it.
 - **No more false "failed" cards** (issue #1). After an answer, the panel polls the agent for up
   to 8 s and counts the terminal's turn moving on as delivered, so a fast agent that already
   replied, or a paste hc held until the terminal went quiet, no longer fails the card. Retry

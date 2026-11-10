@@ -299,6 +299,10 @@ export default class Asks extends View {
           .child(h_flex().id("asks-done").h(24).px(8).gap(6).items_center().text_size(11).font_medium().text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground))
             .on_click((_e, cx) => { this.showAnswered = !this.showAnswered; cx.notify(); })
             .child(div().child("Answered")).child(div().child(String(done.length))).child(div().flex_1())
+            // Clear: forget every finished card in this list (the scope shown), waiting ones stay.
+            .child(div().id("asks-clear").px(6).h(18).flex().items_center().rounded(4).text_size(10.5).text_color(t.dim).hover((s) => s.bg(t.hover).text_color(t.foreground))
+              .on_click((_e, cx) => { cx.stop_propagation(); const ids = new Set(done.map((a) => a.id)); update((s) => { s.asks = s.asks.filter((a) => !ids.has(a.id)); }); cx.notify(); })
+              .child("Clear"))
             .child(svg(`mods/workspace-chrome/chevron-${this.showAnswered ? "down" : "right"}.svg`).size(11).text_color(t.dim)))
           .when(this.showAnswered, (el) => el.children(done.slice(0, 30).map((a) => this.receipt(a, t, now)))))));
   }

@@ -12,6 +12,7 @@
   turn started) and presses Enter or resends once. Failed cards resolve themselves: delivered
   when the agent moves on, `Agent closed` when it is gone, `Not delivered` after ten minutes.
   `Open terminal` on a closed agent no longer throws a toast.
+- **Clear** on the Answered list forgets every finished card in the shown scope.
 - **Decisions log out of the repo** (issue #2). The default is now one file per space,
   `~/.config/herdr-app/decisions/<space>.md`; each line also names the agent's folder.
   `log` takes `{space}` and `{repo}`; `"docs/decisions.md"` restores the old in-repo file.

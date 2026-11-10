@@ -25,8 +25,8 @@ can read what was decided instead of asking again.
 - **Cards** with the agent, the kind (`APPROVAL`, `DECISION`, `QUESTION`, `UNCLEAR`), the
   question, the options verbatim with the agent's recommendation marked, an `Other answer`
   box, `Open terminal` and `Dismiss`.
-- An **Answered** list under the cards, and a line per answer in the decisions log
-  (`~/.config/herdr-app/decisions/<space>.md`).
+- An **Answered** list under the cards, with `Clear` to empty it, and a line per answer in
+  the decisions log (`~/.config/herdr-app/decisions/<space>.md`).
 
 ## How it works
 

@@ -109,9 +109,50 @@ export function parseReport(report) {
   return null;
 }
 
+// Codex: the person's prompts start with `›`, the agent's messages with `•` (continuation
+// lines indented two spaces), tool calls are `•` bullets too (`Ran`, `Explored`, `Called`…)
+// with their output under `└`, and a turn ends with `Worked for 4s • 9:14 PM`. The input box
+// at the bottom is also a `›` line (`Ask Codex to do anything`, or text typed but not sent):
+// a prompt counts only when a `•` line follows it before the next `›`.
+const CODEX_TOOL = /^•\s+(Ran|Explored|Called|Edited|Read|Searched|Updated Plan|Proposed|Added|Deleted|Wrote|Listed|Web search|Viewed|Created)\b/;
+export function parseCodexMessage(text) {
+  const lines = (text ?? "").replace(/\r/g, "").split("\n");
+  let start = -1;
+  for (let i = lines.length - 1; i >= 0 && start < 0; i--) {
+    const m = /^›\s+(\S.*)$/.exec(lines[i]);
+    if (!m || /^Ask Codex to do anything/.test(m[1])) continue;
+    for (let j = i + 1; j < lines.length && !/^›/.test(lines[j]); j++) if (/^•\s/.test(lines[j])) { start = i; break; }
+  }
+  if (start < 0) return { message: "", hasQuestion: false };
+  const out = [];
+  let skipping = false;
+  for (let i = start + 1; i < lines.length; i++) {
+    const l = lines[i];
+    if (/^›/.test(l) || /^\s+Worked for\s/.test(l)) break;
+    if (/^\s*[⚠■]/.test(l)) continue;
+    if (/^•\s/.test(l)) {
+      skipping = CODEX_TOOL.test(l);
+      if (!skipping) out.push(l.replace(/^•\s+/, "").trimEnd());
+      continue;
+    }
+    if (skipping) continue;
+    out.push(l.replace(/^\s{2}/, "").trimEnd());
+  }
+  const message = out.join("\n").trim();
+  return { message, hasQuestion: /\?(\s|$)/.test(message) };
+}
+
 // The agent's own words since the person's last prompt, without tool lines and the
 // "✻ done" footer: what a finished turn said. hasQuestion is the cheap pre-filter.
-export function parseLastMessage(text) {
+// `app` (the terminal's status report) picks the screen format; without it, Claude Code's
+// is tried first and Codex's when that finds no prompt.
+export function parseLastMessage(text, app = null) {
+  if (app === "codex") return parseCodexMessage(text);
+  const r = parseClaudeMessage(text);
+  return r.message || app ? r : parseCodexMessage(text);
+}
+
+export function parseClaudeMessage(text) {
   const lines = (text ?? "").replace(/\r/g, "").split("\n");
   let start = -1;
   for (let i = lines.length - 1; i >= 0; i--) if (sentPrompt(lines, i)) { start = i; break; }
@@ -290,7 +331,7 @@ export class Engine {
         const r = await hc(["read", t.address, "--json", "--lines", "100"]);
         if (r.code !== 0) { this.debug(`${key} read failed: ${r.stderr}`); return; }
         const text = JSON.parse(r.stdout).text ?? "";
-        const { message, hasQuestion } = parseLastMessage(text);
+        const { message, hasQuestion } = parseLastMessage(text, reportOf(t)?.app ?? agent?.app ?? null);
         this.debug(`${key} message ${message.length} chars, question=${hasQuestion}`);
         if (!hasQuestion || message.length < 8) return;
         const model = normalize(await this.classify(message, { app: reportOf(t)?.app ?? agent?.app, program: agent?.program, msg: "" }, "message"));

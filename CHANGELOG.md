@@ -5,6 +5,13 @@
 - **Codex.** A Codex turn that ends in a plain-text question becomes a card and is answered
   with a message, like Claude Code's. A space can mix both; each terminal is read in the
   format of the program in it.
+- **Classifier without Claude.** Plain-text questions are read by the Claude Code CLI when
+  installed, else by the Codex CLI (`codex exec`, newest copy found); `classifier` in
+  `asks.json` forces one. With neither, a notice asks for an issue.
+- **Dropped pastes.** Codex sometimes drops a sent answer; the panel notices (hc reports no
+  turn started) and presses Enter or resends once. Failed cards resolve themselves: delivered
+  when the agent moves on, `Agent closed` when it is gone, `Not delivered` after ten minutes.
+  `Open terminal` on a closed agent no longer throws a toast.
 - **Decisions log out of the repo** (issue #2). The default is now one file per space,
   `~/.config/herdr-app/decisions/<space>.md`; each line also names the agent's folder.
   `log` takes `{space}` and `{repo}`; `"docs/decisions.md"` restores the old in-repo file.

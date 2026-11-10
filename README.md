@@ -40,6 +40,18 @@ way (its screen is read with Codex's own prompt marks), and answers reach it as 
 space can mix Claude Code and Codex; each terminal is read in the format of what runs in it.
 Codex's own approval dialogs are not yet verified as cards.
 
+**Which model reads plain-text questions.** The classifier runs through a CLI you already
+have: the Claude Code CLI when it is installed, else the Codex CLI (`codex exec`, newest copy
+on the machine). With neither, dialogs still work but plain-text questions are not detected,
+and a notice asks you to open an issue so your agent's CLI can be added. `classifier` in
+`asks.json` forces one (`"claude"` or `"codex"`).
+
+**When an answer does not land.** Codex now and then drops a pasted message. The panel checks
+whether the message started a turn; if not, it presses Enter when the text is sitting in the
+input box, or sends it once more. A card that still gets no reaction turns red with `Retry`;
+it resolves itself when the agent moves on (`Picked up late`), when the agent is closed, or
+after ten minutes (`Not delivered`, in the Answered list).
+
 **Finished turns count too.** When an agent ends a turn with plain-text questions instead
 of a dialog, the engine reads that last message and asks `claude -p` (Haiku) whether the agent is
 actually waiting on you. If so it becomes a `QUESTION` card; clicking an option or typing an
@@ -111,7 +123,9 @@ false` keeps it to dialogs only; `classify: "off"` never calls a model.
   "label": "Asks",
   "log": "~/.config/herdr-app/decisions/{space}.md",
   "classify": "auto",
+  "classifier": "auto",
   "model": "haiku",
+  "codex_model": "",
   "trailing_questions": true,
   "toast": false,
   "debug": false,
@@ -127,6 +141,9 @@ false` keeps it to dialogs only; `classify: "off"` never calls a model.
   up in `git status` and an agent that commits everything will commit it.
 - `classify`: `auto` (model only when the report and screen say nothing usable), `always`
   (also adds a context line for parsed asks), `off` (never call a model).
+- `classifier`: which CLI runs the model: `auto` (Claude Code if installed, else Codex),
+  `claude`, or `codex`. `model` is the Claude model (`haiku`); `codex_model` overrides Codex's
+  default model when set.
 - `trailing_questions`: check every finished turn for a plain-text question (needs the model).
 - `group_spaces_by_machine`: once another machine is added, the spaces list puts a header per
   machine over its spaces, as Herdr's own list does; `false` keeps one flat list with no

@@ -3,6 +3,7 @@
 import { terminals, agents, focused, hc, exec, notify, appHome } from "herdr";
 import { readState, update, hash, statusOf, reportOf, msgOf, agentName, MAX_ASKS, KEEP_MS } from "./state.js";
 const MAX_CHECKED = 300;
+const one = (s) => (s ?? "").replace(/\s+/g, " ").trim();
 
 // A prompt the person sent, not the input box at the bottom (which sits under a rule
 // and may hold text typed but not yet sent).
@@ -216,11 +217,15 @@ export class Engine {
         const st = statusOf(t);
         // An answer the panel gave up on (no reaction in time) was often just held by hc until
         // the terminal went quiet: once the agent moves on, it was delivered after all.
-        if ((a.state === "failed" || a.state === "sending") && t && a.sent_turn != null) {
-          const moved = (t.turn ?? 0) > a.sent_turn || (a.delivery !== "send" && !(st === "blocked" && msgOf(t) === a.msg));
-          if (moved && a.state === "failed") { a.state = "delivered"; a.answered_at = now; a.error = null; a.note = "Picked up late"; }
+        if (a.state === "failed") {
+          if (!t) { a.state = "stale"; a.note = "Agent closed"; a.ended_at = now; continue; }
+          const moved = a.sent_turn != null && ((t.turn ?? 0) > a.sent_turn || (a.delivery !== "send" && !(st === "blocked" && msgOf(t) === a.msg)));
+          if (moved) { a.state = "delivered"; a.answered_at = now; a.error = null; a.note = "Picked up late"; continue; }
+          // Ten minutes without a reaction: out of the way, into the Answered list, as not delivered.
+          if (now - (a.sent_at ?? a.detected_at) > 10 * 60 * 1000) { a.state = "stale"; a.note = "Not delivered"; a.ended_at = now; }
           continue;
         }
+        if (a.state === "sending") continue;
         if (a.state !== "pending") continue;
         const gone = !t ? "Agent closed"
           : a.delivery === "send" ? ((st === "idle" || st === "done") && (t.turn ?? 0) === (a.turn ?? 0) ? null : "Answered in terminal")
@@ -382,16 +387,73 @@ export class Engine {
       `Agent program: ${ask.app ?? ask.program?.name ?? "unknown"}. Status report: ${JSON.stringify(ask.msg)}.`,
       "Screen (last lines):", "```", text.split("\n").slice(-45).join("\n").slice(-6000), "```",
     ].join("\n");
+    const backend = await this.backend();
+    if (!backend) { this.debug("no classifier: neither claude nor codex is on PATH"); return null; }
     try {
-      // Skipping the person's MCP servers and settings cuts the CLI's start from ~4 s to ~1 s;
-      // the classifier needs neither (it runs no tools).
-      const r = await exec("claude", ["-p", "--no-session-persistence", "--model", this.config?.model ?? "haiku", "--output-format", "json", "--json-schema", SCHEMA,
-        "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "--setting-sources", "", prompt]);
-      if (r.code !== 0) { this.debug(`claude exit ${r.code}: ${r.stderr} ${r.stdout.slice(0, 200)}`); return null; }
-      const out = JSON.parse(r.stdout);
-      if (out.is_error) { this.debug(`claude error: ${String(out.result).slice(0, 200)}`); return null; }
-      const o = out.structured_output ?? (typeof out.result === "string" ? JSON.parse(out.result) : null);
+      const o = backend === "codex" ? await this.askCodex(prompt) : await this.askClaude(prompt);
       return o && Array.isArray(o.options) ? o : null;
-    } catch (e) { this.debug(`claude threw: ${e?.message ?? e}`); return null; }
+    } catch (e) { this.debug(`${backend} threw: ${e?.message ?? e}`); return null; }
+  }
+
+  // Which CLI runs the classifier: `classifier` in asks.json (`claude` or `codex`), or `auto`:
+  // claude when installed, else codex, else nothing (and a one-time notice asking for an issue
+  // so another agent's CLI can be added). Looked up once; reset when the config is reloaded.
+  async backend() {
+    const want = this.config?.classifier ?? "auto";
+    if (want === "claude") return "claude";
+    if (want === "codex") return (await this.codexBin()) ? "codex" : null;
+    if (this._backend !== undefined) return this._backend;
+    const r = await exec("sh", ["-c", "command -v claude >/dev/null 2>&1 && echo claude"]);
+    this._backend = r.code === 0 && /claude/.test(r.stdout) ? "claude" : (await this.codexBin()) ? "codex" : null;
+    this.debug(`classifier: ${this._backend ?? "none"}`);
+    if (!this._backend && !this.warnedNoClassifier) {
+      this.warnedNoClassifier = true;
+      notify({ title: "Asks: no classifier found", body: "Plain-text questions need the Claude Code or Codex CLI on PATH. Using another agent? Open an issue at github.com/sachin-philip/herdr-agent-ask so it can be added.", level: "warning", timeout: 12000 });
+    }
+    return this._backend;
+  }
+
+  // The newest codex on this machine: Codex's own installer leaves an older copy in
+  // ~/.local/bin that can sit first on PATH, and old versions reject newer model names.
+  async codexBin() {
+    if (this._codex !== undefined) return this._codex;
+    const r = await exec("sh", ["-c", 'for b in "$(command -v codex 2>/dev/null)" /opt/homebrew/bin/codex /usr/local/bin/codex "$HOME/.local/bin/codex" "$HOME/.codex/bin/codex"; do [ -n "$b" ] && [ -x "$b" ] && printf "%s %s\n" "$b" "$("$b" --version 2>/dev/null | head -1)"; done']);
+    let best = null, bestV = [];
+    for (const line of (r.stdout ?? "").split("\n")) {
+      const m = /^(\S+) .*?(\d+)\.(\d+)\.(\d+)/.exec(line.trim());
+      if (!m) continue;
+      const v = [+m[2], +m[3], +m[4]];
+      const newer = !best || v[0] > bestV[0] || (v[0] === bestV[0] && (v[1] > bestV[1] || (v[1] === bestV[1] && v[2] > bestV[2])));
+      if (newer) { best = m[1]; bestV = v; }
+    }
+    this._codex = best;
+    this.debug(`codex: ${best ?? "none"}${best ? " " + bestV.join(".") : ""}`);
+    return best;
+  }
+
+  async askClaude(prompt) {
+    // Skipping the person's MCP servers and settings cuts the CLI's start from ~4 s to ~1 s;
+    // the classifier needs neither (it runs no tools).
+    const r = await exec("claude", ["-p", "--no-session-persistence", "--model", this.config?.model ?? "haiku", "--output-format", "json", "--json-schema", SCHEMA,
+      "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "--setting-sources", "", prompt]);
+    if (r.code !== 0) { this.debug(`claude exit ${r.code}: ${r.stderr} ${r.stdout.slice(0, 200)}`); return null; }
+    const out = JSON.parse(r.stdout);
+    if (out.is_error) { this.debug(`claude error: ${String(out.result).slice(0, 200)}`); return null; }
+    return out.structured_output ?? (typeof out.result === "string" ? JSON.parse(out.result) : null);
+  }
+
+  // `codex exec` with the same schema: the schema goes to a file (that is how codex takes it)
+  // and the answer is the last JSON line it prints. stdin is closed, or codex waits on it.
+  async askCodex(prompt) {
+    const schema = `${appHome()}/asks-schema.json`;
+    const model = this.config?.codex_model ? ["-m", this.config.codex_model] : [];
+    const bin = await this.codexBin();
+    if (!bin) { this.debug("codex: not found"); return null; }
+    const r = await exec("sh", ["-c", 'printf "%s" "$1" > "$2" || exit 1; bin="$3"; schema="$2"; prompt="$4"; shift 4; exec "$bin" exec --ephemeral --skip-git-repo-check -s read-only --output-schema "$schema" "$@" "$prompt" < /dev/null', "asks", SCHEMA, schema, bin, prompt, ...model]);
+    if (r.code !== 0) { this.debug(`codex exit ${r.code}: ${one(r.stderr).slice(0, 200)} ${one(r.stdout).slice(0, 200)}`); return null; }
+    const lines = r.stdout.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("{"));
+    for (let i = lines.length - 1; i >= 0; i--) { try { return JSON.parse(lines[i]); } catch {} }
+    this.debug(`codex gave no JSON: ${one(r.stdout).slice(0, 200)}`);
+    return null;
   }
 }

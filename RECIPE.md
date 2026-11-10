@@ -102,9 +102,23 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   for ~3 s. The button reads `Answer` when there are no options.
 - `Other answer`: `hc send --force <t> "<text>"` while the dialog is up (Claude Code's question
   dialog takes typed text as the answer); `hc send --if idle` otherwise. Same 8 s poll.
+- `hc send --json` says whether the message `started` a turn. Codex sometimes drops a paste
+  outright (seen on fresh agents right after a turn, about one send in three, not reproducible
+  on demand): on `started: false` the panel reads the screen; the text on a prompt line
+  (`› Spaces`, not anywhere on screen, since a short answer is usually in the question too)
+  means Enter did not submit, so `hc keys enter`; otherwise `hc send --force` once more. One
+  extra attempt at most.
 - A `failed` card remembers `sent_turn`. Retry first checks the turn: moved on means the earlier
   answer landed late, so the card becomes delivered ("Picked up late") instead of sending twice.
-  The engine's tick does the same for failed cards whose agent moved on.
+  The engine's tick does the same; a failed card whose agent is gone becomes `Agent closed`, and
+  one with no reaction for ten minutes becomes `Not delivered` in the Answered list. `Open
+  terminal` on a closed agent marks the card `Agent closed` instead of a failed-command toast.
+- The classifier backend (`Engine.backend`): `classifier` in asks.json, or `auto` = `claude` on
+  PATH, else the newest `codex` among PATH, Homebrew, /usr/local and `~/.local/bin`
+  (`Engine.codexBin`; Codex's installer leaves old copies that reject newer model names), else
+  none plus a one-time notice. `askCodex` writes the schema to `asks-schema.json`, runs
+  `codex exec --ephemeral --skip-git-repo-check -s read-only --output-schema … < /dev/null`
+  (stdin must be closed or codex waits on it) and takes the last JSON line.
 - Delivered: the card collapses into the Answered list and one line is appended to the
   decisions log, by default `~/.config/herdr-app/decisions/<space>.md` (`log` in asks.json;
   `{space}`, `{repo}`, `~/`, absolute, or relative to the agent's folder):

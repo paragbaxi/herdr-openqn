@@ -3,7 +3,7 @@
 // shared state and delivers answers with hc.
 import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { spaces, focused, run, theme, hc, exec, nextCommand } from "herdr";
+import { spaces, focused, run, theme, hc, exec, nextCommand, appHome } from "herdr";
 import { readState, update, stillAsking, stillIdle, liveTerminal, age, loadConfig, DEFAULTS } from "./state.js";
 
 // How long the panel waits for the agent to react to an answer. hc holds a paste or key
@@ -56,6 +56,12 @@ export default class Asks extends View {
   }
 
   set(id, patch) { update((s) => { const a = s.asks.find((x) => x.id === id); if (a) Object.assign(a, patch); }); }
+
+  // With `debug: true` in asks.json, delivery steps go to ~/.config/herdr-app/asks.log too.
+  debug(line) {
+    if (!this.config?.debug) return;
+    exec("sh", ["-c", 'printf "%s %s\n" "$(date +%H:%M:%S)" "$1" >> "$2"', "asks", String(line).slice(0, 600), `${appHome()}/asks.log`]).catch(() => {});
+  }
 
   draft(id, i, text) { (this.drafts[id] ??= {})[i] = text; this.openQ = null; }
 
@@ -122,9 +128,29 @@ export default class Asks extends View {
     // Taken: the turn moved on, or (idle agent) it is no longer idle, or (dialog) the dialog is gone.
     const taken = (g) => g.turn > sentTurn || (live ? !(g.state === "blocked" && g.msg === ask.msg) : !(g.state === "idle" || g.state === "done"));
     this.deliver(ask, cx, async (sleep) => {
-      const r = await hc(live ? ["send", "--force", ask.address, text] : ["send", ask.address, text]);
+      // `hc send --json` reports whether the message started a turn. Codex now and then drops
+      // a paste (seen on fresh agents, not reproducible on demand): when nothing started and the
+      // text is not sitting in the input box, send it once more; if it is sitting there unsent,
+      // press Enter. Never more than one extra attempt.
+      const send = (force) => hc(["send", "--json", ...(force ? ["--force"] : []), ask.address, text]);
+      let r = await send(live);
+      this.debug(`${ask.id} send${live ? " --force" : ""} turn ${sentTurn}: code ${r.code} out ${one(r.stdout).slice(0, 200)} err ${one(r.stderr).slice(0, 200)}`);
       if (r.code !== 0) throw new Error(one(r.stderr) || "Could not send the answer");
-      const g = await this.settle(ask.address, sleep, taken);
+      let started = null;
+      try { started = JSON.parse(r.stdout).started ?? null; } catch {}
+      let g = await this.settle(ask.address, sleep, taken, started === false ? 1500 : SETTLE_MS);
+      if (g && !taken(g) && started === false) {
+        // "In the box" means on a prompt line (`› Spaces`, `❯ Spaces`), not anywhere on screen:
+        // a short answer such as `Spaces` is usually also in the agent's question.
+        const head = text.split("\n")[0].slice(0, 40).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const rd = await hc(["read", ask.address, "--json"]);
+        const onScreen = rd.code === 0 && Boolean(head) && new RegExp(`^[›❯>]\\s*${head}`, "m").test(JSON.parse(rd.stdout).text ?? "");
+        this.debug(`${ask.id} not started; text on screen: ${onScreen}`);
+        if (onScreen) await hc(["keys", ask.address, "enter"]);
+        else { r = await send(true); this.debug(`${ask.id} resent: ${one(r.stdout).slice(0, 200)}`); }
+        g = await this.settle(ask.address, sleep, taken);
+      }
+      this.debug(`${ask.id} settled: ${JSON.stringify(g)} taken=${g ? taken(g) : null}`);
       if (g && !taken(g)) return { state: "blocked", msg: ask.msg };
       return g;
     });
@@ -135,7 +161,7 @@ export default class Asks extends View {
       const sleep = (ms) => new Promise((res) => cx.timer.after(ms, () => res()));
       try {
         const g = await act(sleep);
-        if (g && g.state === "blocked" && g.msg === ask.msg) throw new Error(`No reaction from the agent in ${SETTLE_MS / 1000} s. It may still take it; Retry sends it again.`);
+        if (g && g.state === "blocked" && g.msg === ask.msg) throw new Error("Not delivered: the agent did not react. Retry sends it again, or answer in the terminal.");
         const now = Date.now();
         this.set(ask.id, { state: "delivered", answered_at: now, error: null });
         await this.log(ask, now);
@@ -170,6 +196,8 @@ export default class Asks extends View {
   }
 
   open(ask) {
+    // A closed agent has no pane to focus: say so on the card instead of a failed-command toast.
+    if (!liveTerminal(ask.address)) return this.set(ask.id, { state: "stale", note: "Agent closed", ended_at: Date.now() });
     if (ask.pane) run("pane.focus", { pane: ask.pane });
     else run("agent.focus", { terminal: ask.address });
   }

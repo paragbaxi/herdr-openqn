@@ -1,0 +1,153 @@
+#!/usr/bin/env python3
+"""End-to-end check against the running Herdr app: start a throwaway agent in the shown
+space, have it ask a plain-text question, answer it from the panel (herdr-app do asks.accept)
+and report whether the card ends as delivered. Not for CI: it needs the Herdr desktop app,
+hc, and a Claude Code login (and the Codex CLI for the codex cases).
+
+    python3 scripts/e2e.py            # claude alone, codex alone, both together
+    python3 scripts/e2e.py claude     # one case
+    python3 scripts/e2e.py codex both
+
+Open the Asks panel first (the accept command reaches the panel only while it is shown).
+Each case costs the agents one or two short turns.
+"""
+import json, os, subprocess, sys, time
+
+HOME = os.path.expanduser("~/.config/herdr-app")
+ENV = {k: v for k, v in os.environ.items() if k not in ("HC_TERMINAL_ID", "HC_TERMINAL_SOCKET")}
+PROMPTS = {
+    "claude": "Ask me, as plain text (no tool), whether the build should use esbuild or tsc. Recommend esbuild. List both answers. Then stop and wait.",
+    "codex": "Ask me one question as plain text: should indentation use tabs or spaces? Recommend spaces. List both answers as bullets. Do not run any command. Then stop and wait.",
+}
+LAUNCH = {"claude": "claude --model haiku", "codex": "codex"}
+
+
+def sh(*a):
+    return subprocess.run(a, capture_output=True, text=True, env=ENV).stdout
+
+
+def hc(*a):
+    return sh("hc", *a)
+
+
+def app(*a):
+    return sh("herdr-app", *a)
+
+
+def send(t, text, force=False):
+    subprocess.run(["hc", "send"] + (["--force"] if force else []) + [t, text], env=ENV, capture_output=True)
+
+
+def get(t):
+    return json.loads(hc("get", t, "--json"))
+
+
+def asks(addr):
+    try:
+        s = json.load(open(f"{HOME}/shared.json"))
+    except Exception:
+        return []
+    return [a for a in (s.get("asks.state") or {}).get("asks", []) if a["address"] == addr]
+
+
+def wait_card(addr, timeout=90):
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        for a in asks(addr):
+            if a["state"] == "pending":
+                return a
+        time.sleep(0.5)
+
+
+def wait_state(addr, aid, timeout=25):
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        for a in asks(addr):
+            if a["id"] == aid and a["state"] in ("delivered", "failed", "stale"):
+                return a
+        time.sleep(0.5)
+    return next((a for a in asks(addr) if a["id"] == aid), None)
+
+
+def ready(t, timeout=40):
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        st = get(t).get("status") or {}
+        if isinstance(st, dict) and st.get("app") and st.get("state") in ("idle", "done"):
+            return True
+        time.sleep(1)
+    return False
+
+
+def screen(t, n=40):
+    try:
+        return json.loads(hc("read", t, "--json", "--lines", str(n)))["text"].strip()[-1600:]
+    except Exception as e:
+        return str(e)
+
+
+def run_case(label, progs, space):
+    print(f"=== {label}")
+    terms = {}
+    for p in progs:
+        r = json.loads(app("do", "tab.new", "--name", f"e2e-{p}", "--space", space, "--folder", os.getcwd()))
+        time.sleep(2)
+        send(r["terminal"], LAUNCH[p])
+        terms[p] = (r["terminal"], r["tab"])
+    for p, (t, _) in terms.items():
+        print(f"  {p} {t} ready={ready(t)}")
+    t_send = time.time()
+    for p, (t, _) in terms.items():
+        send(t, PROMPTS[p], force=True)
+    cards, results = {}, []
+    for p, (t, _) in terms.items():
+        a = wait_card(t)
+        cards[p] = a
+        if a:
+            print(f"  {p}: card {a['kind']} {a['question'][:50]!r} options={[o['label'] for o in a['options']]} after {round(a['detected_at'] / 1000 - t_send, 1)} s")
+        else:
+            print(f"  {p}: NO CARD in 90 s\n{screen(t)}")
+            results.append((label, p, "no card"))
+    turns = {p: get(t)["turn"] for p, (t, _) in terms.items() if cards.get(p)}
+    t0 = time.time()
+    for _ in [p for p in progs if cards.get(p)]:
+        app("do", "asks.accept")
+        time.sleep(3)
+    for p, (t, _) in terms.items():
+        a = cards.get(p)
+        if not a:
+            continue
+        b = wait_state(t, a["id"])
+        g = get(t)
+        state = b["state"] if b else None
+        print(f"  {p}: -> {state} after {round(time.time() - t0, 1)} s, answer={b.get('answer') if b else None}, error={b.get('error') if b else None}, agent {g['status'].get('state')} turn {turns[p]}->{g['turn']}")
+        results.append((label, p, state))
+        if state != "delivered":
+            print(f"  --- screen of {p}\n{screen(t)}\n  ---")
+    time.sleep(4)
+    for p, (t, tab) in terms.items():
+        app("do", "tab.close", "--id", tab)
+    return results
+
+
+def main():
+    which = sys.argv[1:] or ["claude", "codex", "both"]
+    status = json.loads(app("status"))
+    space = status["space"]
+    app("do", "tabs-asks.open")
+    results = []
+    for w in which:
+        if w == "claude":
+            results += run_case("Claude alone", ["claude"], space)
+        elif w == "codex":
+            results += run_case("Codex alone", ["codex"], space)
+        elif w == "both":
+            results += run_case("Claude + Codex together", ["claude", "codex"], space)
+        else:
+            sys.exit(f"unknown case {w!r}: claude, codex, both")
+    print("RESULTS", results)
+    sys.exit(0 if all(r[2] == "delivered" for r in results) else 1)
+
+
+if __name__ == "__main__":
+    main()

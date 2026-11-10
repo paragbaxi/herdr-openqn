@@ -13,6 +13,10 @@
   when the agent moves on, `Agent closed` when it is gone, `Not delivered` after ten minutes.
   `Open terminal` on a closed agent no longer throws a toast.
 - **Clear** on the Answered list forgets every finished card in the shown scope.
+- **Tests.** The screen and report parsers moved to `mods/tabs-asks/parse.js` (no Herdr
+  import) and run under `node --test` against real captured screens, on every PR through
+  GitHub Actions. `scripts/check-mods.sh` loads the mods in the app's checker;
+  `scripts/e2e.py` is the live release check (Claude alone, Codex alone, both).
 - **Decisions log out of the repo** (issue #2). The default is now one file per space,
   `~/.config/herdr-app/decisions/<space>.md`; each line also names the agent's folder.
   `log` takes `{space}` and `{repo}`; `"docs/decisions.md"` restores the old in-repo file.

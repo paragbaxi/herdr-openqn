@@ -139,10 +139,17 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   always present (the enabled list is `shared("workspace.panels")` plus `asks`), the badge,
   `togglePanel`, a `nextCommand()` loop (`toggle`, `open`), and an `Engine` created in `init`,
   ticked by `cx.timer.every(2000)` and from `render`. Its `win-*.svg` are copies of the shipped ones.
-- `mods/tabs-asks/engine.js`: `parseReport`, `parseScreen`, `parseLastMessage`, `normalize`,
-  `Engine.tick` (diff `terminals()` against the shared state; finished-turn pass),
-  `Engine.enrich` (screen read, model fallback), `Engine.checkTurn`, `Engine.classify` (two
-  prompt modes, `dialog` and `message`), `Engine.recheck` (`tabs-asks.recheck`).
+- `mods/tabs-asks/parse.js`: the pure parts, no Herdr import: `parseReport`, `parseScreen`,
+  `parseLastMessage` (`parseClaudeMessage`, `parseCodexMessage`), `normalize`, `SCHEMA`.
+  `node --test` runs `tests/*.test.mjs` against screens in `tests/fixtures` (captured with
+  `hc read <t> --json --lines 100`), and GitHub Actions runs it on every PR.
+- `mods/tabs-asks/engine.js`: `Engine.tick` (diff `terminals()` against the shared state;
+  finished-turn pass; failed-card healing), `Engine.enrich` (screen read, model fallback),
+  `Engine.checkTurn`, `Engine.classify` (two prompt modes, `dialog` and `message`),
+  `Engine.backend` / `Engine.codexBin` / `askClaude` / `askCodex`, `Engine.recheck`
+  (`tabs-asks.recheck`).
+- `scripts/check-mods.sh` loads the three mods in `herdr-app check`; `scripts/e2e.py` runs the
+  live matrix (Claude alone, Codex alone, both) against the open window.
 - `mods/spaces-asks/main.js`: Herdr's shipped `spaces` mod (0.1.13) with `waiting(spaceId)` over
   `shared("asks.state")` and a count pill in `row` and `compact`; `grouped` skips the machine
   headers when `group_spaces_by_machine` is `false` in asks.json (read in `init`, every 30 s).

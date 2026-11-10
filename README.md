@@ -165,11 +165,20 @@ Keys: `tabs-asks.toggle` shows or hides the panel, `tabs-asks.open` opens it,
 ## Develop
 
 ```sh
-herdr-app check mods/asks
-herdr-app check mods/tabs-asks
-herdr-app check mods/spaces-asks
-cp -R herdr-app/mods/asks/. ~/.config/herdr-app/mods/asks/      # the app reloads on save
+node --test                 # parsers against real screens in tests/fixtures; runs on every PR
+sh scripts/check-mods.sh    # loads each mod in the Herdr app's checker (needs the app)
+python3 scripts/e2e.py      # live: a throwaway agent asks, the panel answers (needs the app, hc, logins)
+cp -R mods/asks/. ~/.config/herdr-app/mods/asks/      # the app reloads on save
 ```
+
+Three layers: `node --test` covers the pure parts (`mods/tabs-asks/parse.js`: the Claude Code
+and Codex screen parsers, the status-report parser, the classifier's normaliser) against
+screens captured from real agents, and checks that the two `state.js` copies are identical.
+`scripts/check-mods.sh` catches a mod that fails to load or render. `scripts/e2e.py` is the
+release check: it starts a Claude Code agent, a Codex agent, or both in the shown space, has
+them ask a plain-text question, answers from the panel and reports delivered or not; it costs
+the agents a couple of short turns, so it stays a local step. Add a new screen format by
+capturing `hc read <t> --json --lines 100` into `tests/fixtures/` and asserting on it.
 
 `mods/asks/state.js` and `mods/tabs-asks/state.js` must stay identical; mods import only
 their own folder. Detection lives in `tabs-asks` because the tab bar is always shown, so

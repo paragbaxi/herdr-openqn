@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Codex.** A Codex turn that ends in a plain-text question becomes a card and is answered
+  with a message, like Claude Code's. A space can mix both; each terminal is read in the
+  format of the program in it.
 - **Decisions log out of the repo** (issue #2). The default is now one file per space,
   `~/.config/herdr-app/decisions/<space>.md`; each line also names the agent's folder.
   `log` takes `{space}` and `{repo}`; `"docs/decisions.md"` restores the old in-repo file.

@@ -35,6 +35,11 @@ is asking in its status (`kind: question` with the options, or `kind: permission
 tool and target). The panel reads that report, then reads the screen for the option numbers and
 the line of context. No model is involved for Claude Code.
 
+**Codex works too.** A Codex turn that ends by asking you something becomes a card the same
+way (its screen is read with Codex's own prompt marks), and answers reach it as messages. A
+space can mix Claude Code and Codex; each terminal is read in the format of what runs in it.
+Codex's own approval dialogs are not yet verified as cards.
+
 **Finished turns count too.** When an agent ends a turn with plain-text questions instead
 of a dialog, the engine reads that last message and asks `claude -p` (Haiku) whether the agent is
 actually waiting on you. If so it becomes a `QUESTION` card; clicking an option or typing an

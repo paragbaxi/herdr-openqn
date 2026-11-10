@@ -68,7 +68,12 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   a permission prompt, and the context line.
 - Finished turns: every `done` or `idle` turn is checked once (`address:p:turn`, remembered in
   the shared state's `checked`, the first pass skipping turns already idle). The agent's words
-  since the person's last `❯` prompt are taken (tool lines and the `✻ … done` footer dropped);
+  since the person's last prompt are taken: for Claude Code the last `❯` prompt (tool lines and
+  the `✻ … done` footer dropped); for Codex (`parseCodexMessage`) the last `›` prompt that has a
+  `•` line after it (the input box at the bottom is a `›` line too, `Ask Codex to do anything`
+  or text typed but not sent), `•` tool bullets (`Ran`, `Explored`, `Called`, `Edited`…) and
+  their `└` output dropped, stopping at the `Worked for 4s • 9:14 PM` footer. The terminal's
+  reported `app` picks the format; without one, Claude Code's is tried, then Codex's;
   with a `?` in them, `claude -p` (`mode: message`) says whether the agent is waiting on the
   person (`asks`), the main question (`(+N more)` for several), any options it laid out, and a
   context line. `asks` true and confidence ≥ 0.6 make a `QUESTION` card with `delivery: "send"`.

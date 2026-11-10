@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Decisions log out of the repo** (issue #2). The default is now one file per space,
+  `~/.config/herdr-app/decisions/<space>.md`; each line also names the agent's folder.
+  `log` takes `{space}` and `{repo}`; `"docs/decisions.md"` restores the old in-repo file.
+
 ## 0.3.0 · 2026-11-10
 
 - **Flat spaces list** (PR #3, thanks paragbaxi). `group_spaces_by_machine: false` in

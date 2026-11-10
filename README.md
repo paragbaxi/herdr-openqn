@@ -10,8 +10,9 @@ see what every agent is waiting on and keep track of the space as a whole withou
 each terminal.
 
 Answer on the card and the answer goes straight into that agent's terminal: a key press for a
-dialog, a message for a plain-text question. Each answer is appended to `docs/decisions.md` in
-the agent's workspace so the next agent can read it instead of asking again.
+dialog, a message for a plain-text question. Each answer is appended to a decisions log, one
+file per space under `~/.config/herdr-app/decisions/`, so you (or an agent you point at it)
+can read what was decided instead of asking again.
 
 **Version:** 0.3.0 (see `CHANGELOG.md`). Herdr desktop app only; the TUI plugin is planned (see `docs/PRD.md`).
 
@@ -24,7 +25,8 @@ the agent's workspace so the next agent can read it instead of asking again.
 - **Cards** with the agent, the kind (`APPROVAL`, `DECISION`, `QUESTION`, `UNCLEAR`), the
   question, the options verbatim with the agent's recommendation marked, an `Other answer`
   box, `Open terminal` and `Dismiss`.
-- An **Answered** list under the cards, and a line per answer in `docs/decisions.md`.
+- An **Answered** list under the cards, and a line per answer in the decisions log
+  (`~/.config/herdr-app/decisions/<space>.md`).
 
 ## How it works
 
@@ -102,7 +104,7 @@ false` keeps it to dialogs only; `classify: "off"` never calls a model.
 ```json
 {
   "label": "Asks",
-  "log": "docs/decisions.md",
+  "log": "~/.config/herdr-app/decisions/{space}.md",
   "classify": "auto",
   "model": "haiku",
   "trailing_questions": true,
@@ -113,10 +115,11 @@ false` keeps it to dialogs only; `classify: "off"` never calls a model.
 ```
 
 - `label`: the words on the tab-bar button and the panel header.
-- `log`: where answers are appended, relative to the agent's folder (`""` disables). `~/…` and
-  absolute paths work too. Inside a git checkout the default `docs/decisions.md` shows up in
-  `git status`, and an agent that commits everything will commit it: add it to `.gitignore`, or
-  point `log` outside the repo, e.g. `"~/.config/herdr-app/decisions.md"`.
+- `log`: where answers are appended (`""` disables). `{space}` is the space's name and `{repo}`
+  the agent's folder name; `~/…` and absolute paths work, and a relative path is inside the
+  agent's folder. The default keeps the log out of your repos. `"docs/decisions.md"` puts it
+  in the agent's checkout instead, where the next agent there can read it, but it then shows
+  up in `git status` and an agent that commits everything will commit it.
 - `classify`: `auto` (model only when the report and screen say nothing usable), `always`
   (also adds a context line for parsed asks), `off` (never call a model).
 - `trailing_questions`: check every finished turn for a plain-text question (needs the model).

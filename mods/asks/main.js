@@ -4,7 +4,7 @@
 import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { spaces, focused, run, theme, hc, exec, nextCommand } from "herdr";
-import { readState, update, stillAsking, stillIdle, liveTerminal, age, loadConfig } from "./state.js";
+import { readState, update, stillAsking, stillIdle, liveTerminal, age, loadConfig, DEFAULTS } from "./state.js";
 
 // How long the panel waits for the agent to react to an answer. hc holds a paste or key
 // press until nobody has typed in that terminal for ~3 s, and a turn takes a moment to start.
@@ -145,13 +145,18 @@ export default class Asks extends View {
     });
   }
 
+  // One line per answer. The default is one file per space under Herdr's config folder, so
+  // nothing lands in the agent's repo (issue #2); `{space}` is the space's name, `{repo}` the
+  // agent's folder name. A relative `log` is inside the agent's folder, `~/…` is home.
   async log(ask, at) {
-    const rel = this.config?.log ?? "docs/decisions.md";
-    if (!rel || !ask.cwd) return;
-    // `~/…` is the person's home; a relative path is inside the agent's folder (issue #2).
+    const slug = (s) => (s ?? "").replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "") || "space";
+    const rel = (this.config?.log ?? DEFAULTS.log).replace(/\{space\}/g, slug(ask.space_name) ).replace(/\{repo\}/g, slug((ask.cwd ?? "").split("/").pop()));
+    if (!rel) return;
+    if (!rel.startsWith("/") && !rel.startsWith("~/") && !ask.cwd) return;
     const path = rel.startsWith("/") || rel.startsWith("~/") ? rel : `${ask.cwd}/${rel}`;
     const answer = readState().asks.find((a) => a.id === ask.id)?.answer ?? ask.answer ?? "";
-    const line = `- ${stamp(new Date(at))} · ${one(ask.agent)} · ${ask.kind} · ${one(ask.question)} → ${one(answer)}`;
+    const repo = (ask.cwd ?? "").split("/").pop();
+    const line = `- ${stamp(new Date(at))} · ${one(ask.agent)}${repo ? ` @ ${repo}` : ""} · ${ask.kind} · ${one(ask.question)} → ${one(answer)}`;
     try { await exec("sh", ["-c", 'case "$2" in "~/"*) p="$HOME/${2#\\~/}";; *) p="$2";; esac; d=$(dirname "$p"); mkdir -p "$d" && printf "%s\\n" "$1" >> "$p"', "asks", line, path]); } catch {}
   }
 

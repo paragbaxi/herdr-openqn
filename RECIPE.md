@@ -16,7 +16,7 @@ tab bar and spaces list pointed at the two clones and the panel added, so copyin
 and the three mods and switching to it is all it takes. To keep a layout of your own instead,
 run `node install.mjs`, which clones the layout you are showing and makes the same three
 changes to the clone. Before adding it, know that it runs `hc` to read and answer terminals,
-`claude -p` for plain-text questions, and a shell to append to `docs/decisions.md`.
+`claude -p` for plain-text questions, and a shell to append to the decisions log.
 
 ## What you see
 
@@ -100,9 +100,10 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
 - A `failed` card remembers `sent_turn`. Retry first checks the turn: moved on means the earlier
   answer landed late, so the card becomes delivered ("Picked up late") instead of sending twice.
   The engine's tick does the same for failed cards whose agent moved on.
-- Delivered: the card collapses into the Answered list and one line is appended to
-  `<agent cwd>/docs/decisions.md`:
-  `- 2026-11-07 22:41 · asks-test · DECISION · Which font should the heading use? → Geist (Recommended)`.
+- Delivered: the card collapses into the Answered list and one line is appended to the
+  decisions log, by default `~/.config/herdr-app/decisions/<space>.md` (`log` in asks.json;
+  `{space}`, `{repo}`, `~/`, absolute, or relative to the agent's folder):
+  `- 2026-11-07 22:41 · asks-test @ demo · DECISION · Which font should the heading use? → Geist (Recommended)`.
   Dismissed and stale cards are not logged.
 - A pending ask whose agent is no longer blocked, shows another dialog, or is gone becomes stale
   (`Resolved in terminal` / `Agent closed`). Finished cards are kept 24 h, at most 60 in all.
@@ -218,7 +219,7 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   Red, Green, Blue; recommend Green"` puts a `DECISION` card in that space's panel within 2 s,
   options `1 Green (Recommended)` (marked), `2 Red`, `3 Blue`, and `Asks 1` in the tab bar.
 - Clicking `Red` makes the agent's screen say `→ Red` within 3 s, the card moves to `Answered`
-  with `→ Red`, and `<cwd>/docs/decisions.md` gains the line.
+  with `→ Red`, and `~/.config/herdr-app/decisions/<space>.md` gains the line.
 - Answering the dialog in the terminal instead turns the card into `Resolved in terminal`.
 - `Other answer` + `Tabler icons instead` + Enter: the agent reports that free-text answer.
 - A `claude --permission-mode default` agent asked to write a file shows an `APPROVAL` card

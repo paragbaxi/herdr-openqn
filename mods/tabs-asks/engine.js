@@ -171,9 +171,16 @@ export class Engine {
       // Right after a reload terminals() can be empty or without reports for a moment: a card
       // goes stale only when its dialog has been gone for 3 s, and never while nothing is listed.
       if (live.length) for (const a of s.asks) {
-        if (a.state !== "pending") continue;
         const t = byAddress.get(a.address);
         const st = statusOf(t);
+        // An answer the panel gave up on (no reaction in time) was often just held by hc until
+        // the terminal went quiet: once the agent moves on, it was delivered after all.
+        if ((a.state === "failed" || a.state === "sending") && t && a.sent_turn != null) {
+          const moved = (t.turn ?? 0) > a.sent_turn || (a.delivery !== "send" && !(st === "blocked" && msgOf(t) === a.msg));
+          if (moved && a.state === "failed") { a.state = "delivered"; a.answered_at = now; a.error = null; a.note = "Picked up late"; }
+          continue;
+        }
+        if (a.state !== "pending") continue;
         const gone = !t ? "Agent closed"
           : a.delivery === "send" ? ((st === "idle" || st === "done") && (t.turn ?? 0) === (a.turn ?? 0) ? null : "Answered in terminal")
           : st !== "blocked" || msgOf(t) !== a.msg ? "Resolved in terminal" : null;
@@ -335,7 +342,10 @@ export class Engine {
       "Screen (last lines):", "```", text.split("\n").slice(-45).join("\n").slice(-6000), "```",
     ].join("\n");
     try {
-      const r = await exec("claude", ["-p", "--no-session-persistence", "--model", this.config?.model ?? "haiku", "--output-format", "json", "--json-schema", SCHEMA, prompt]);
+      // Skipping the person's MCP servers and settings cuts the CLI's start from ~4 s to ~1 s;
+      // the classifier needs neither (it runs no tools).
+      const r = await exec("claude", ["-p", "--no-session-persistence", "--model", this.config?.model ?? "haiku", "--output-format", "json", "--json-schema", SCHEMA,
+        "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "--setting-sources", "", prompt]);
       if (r.code !== 0) { this.debug(`claude exit ${r.code}: ${r.stderr} ${r.stdout.slice(0, 200)}`); return null; }
       const out = JSON.parse(r.stdout);
       if (out.is_error) { this.debug(`claude error: ${String(out.result).slice(0, 200)}`); return null; }

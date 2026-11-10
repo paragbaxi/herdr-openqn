@@ -4,7 +4,11 @@
 import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { spaces, focused, run, theme, hc, exec, nextCommand } from "herdr";
-import { readState, update, stillAsking, stillIdle, age, loadConfig } from "./state.js";
+import { readState, update, stillAsking, stillIdle, liveTerminal, age, loadConfig } from "./state.js";
+
+// How long the panel waits for the agent to react to an answer. hc holds a paste or key
+// press until nobody has typed in that terminal for ~3 s, and a turn takes a moment to start.
+const SETTLE_MS = 8000;
 
 const KIND = { APPROVAL: "blocked", DECISION: "accent", QUESTION: "working", UNCLEAR: "dim" };
 const stamp = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -72,7 +76,19 @@ export default class Asks extends View {
     if (r.code !== 0) return null;
     const g = JSON.parse(r.stdout);
     const st = typeof g.status === "string" ? g.status : g.status?.state ?? null;
-    return { state: g.state === "live" ? st : "gone", msg: typeof g.status === "object" ? g.status?.msg ?? "" : "" };
+    return { state: g.state === "live" ? st : "gone", msg: typeof g.status === "object" ? g.status?.msg ?? "" : "", turn: g.turn ?? 0 };
+  }
+
+  // Probe every 400 ms until `done(g)` or the time is up; returns the last probe.
+  async settle(address, sleep, done, ms = SETTLE_MS) {
+    const until = Date.now() + ms;
+    let g = null;
+    for (;;) {
+      g = await this.probe(address);
+      if (!g || g.state === "gone" || done(g)) return g;
+      if (Date.now() >= until) return g;
+      await sleep(400);
+    }
   }
 
   // Press the option's number; Enter only if the dialog is still there (Claude Code selects on the number alone).
@@ -80,17 +96,17 @@ export default class Asks extends View {
     // A prose question: the option is sent as a message, not pressed as a key.
     if (ask.delivery === "send") return this.sendText(ask, option.label.replace(/\s*\(recommended\)\s*$/i, ""), cx);
     if (!stillAsking(ask)) return this.stale(ask);
-    this.set(ask.id, { state: "sending", answer: option.label, chosen: option, error: null });
+    const sentTurn = liveTerminal(ask.address)?.turn ?? ask.turn ?? 0;
+    this.set(ask.id, { state: "sending", answer: option.label, chosen: option, error: null, sent_turn: sentTurn, sent_at: Date.now() });
+    const same = (g) => g.state === "blocked" && g.msg === ask.msg && g.turn <= sentTurn;
     this.deliver(ask, cx, async (sleep) => {
       let r = await hc(["keys", ask.address, String(option.n)]);
       if (r.code !== 0) throw new Error(one(r.stderr) || "Could not press the key");
-      await sleep(900);
-      let g = await this.probe(ask.address);
-      if (g && g.state === "blocked" && g.msg === ask.msg) {
+      let g = await this.settle(ask.address, sleep, (g) => !same(g), 1500);
+      if (g && same(g)) {
         r = await hc(["keys", ask.address, "enter"]);
         if (r.code !== 0) throw new Error(one(r.stderr) || "Could not press Enter");
-        await sleep(1500);
-        g = await this.probe(ask.address);
+        g = await this.settle(ask.address, sleep, (g) => !same(g));
       }
       return g;
     });
@@ -100,15 +116,16 @@ export default class Asks extends View {
   sendText(ask, text, cx) {
     const live = stillAsking(ask);
     if (!live && !stillIdle(ask)) return this.set(ask.id, { state: "stale", note: ask.delivery === "send" ? "Answered in terminal" : "Resolved in terminal", ended_at: Date.now() });
-    this.set(ask.id, { state: "sending", answer: text, chosen: { text }, error: null });
+    const sentTurn = liveTerminal(ask.address)?.turn ?? ask.turn ?? 0;
+    this.set(ask.id, { state: "sending", answer: text, chosen: { text }, error: null, sent_turn: sentTurn, sent_at: Date.now() });
     this.other = null; this.input.set_value(""); this.otherText = "";
+    // Taken: the turn moved on, or (idle agent) it is no longer idle, or (dialog) the dialog is gone.
+    const taken = (g) => g.turn > sentTurn || (live ? !(g.state === "blocked" && g.msg === ask.msg) : !(g.state === "idle" || g.state === "done"));
     this.deliver(ask, cx, async (sleep) => {
       const r = await hc(live ? ["send", "--force", ask.address, text] : ["send", ask.address, text]);
       if (r.code !== 0) throw new Error(one(r.stderr) || "Could not send the answer");
-      await sleep(1500);
-      const g = await this.probe(ask.address);
-      // A message to an idle agent is delivered once it is working (or at a new dialog).
-      if (!live) return g && (g.state === "idle" || g.state === "done") ? { state: "blocked", msg: ask.msg } : null;
+      const g = await this.settle(ask.address, sleep, taken);
+      if (g && !taken(g)) return { state: "blocked", msg: ask.msg };
       return g;
     });
   }
@@ -118,7 +135,7 @@ export default class Asks extends View {
       const sleep = (ms) => new Promise((res) => cx.timer.after(ms, () => res()));
       try {
         const g = await act(sleep);
-        if (g && g.state === "blocked" && g.msg === ask.msg) throw new Error(ask.delivery === "send" ? "The agent did not pick the message up" : "The agent did not accept the answer");
+        if (g && g.state === "blocked" && g.msg === ask.msg) throw new Error(`No reaction from the agent in ${SETTLE_MS / 1000} s. It may still take it; Retry sends it again.`);
         const now = Date.now();
         this.set(ask.id, { state: "delivered", answered_at: now, error: null });
         await this.log(ask, now);
@@ -131,13 +148,17 @@ export default class Asks extends View {
   async log(ask, at) {
     const rel = this.config?.log ?? "docs/decisions.md";
     if (!rel || !ask.cwd) return;
-    const path = rel.startsWith("/") ? rel : `${ask.cwd}/${rel}`;
+    // `~/…` is the person's home; a relative path is inside the agent's folder (issue #2).
+    const path = rel.startsWith("/") || rel.startsWith("~/") ? rel : `${ask.cwd}/${rel}`;
     const answer = readState().asks.find((a) => a.id === ask.id)?.answer ?? ask.answer ?? "";
     const line = `- ${stamp(new Date(at))} · ${one(ask.agent)} · ${ask.kind} · ${one(ask.question)} → ${one(answer)}`;
-    try { await exec("sh", ["-c", 'd=$(dirname "$2"); mkdir -p "$d" && printf "%s\\n" "$1" >> "$2"', "asks", line, path]); } catch {}
+    try { await exec("sh", ["-c", 'case "$2" in "~/"*) p="$HOME/${2#\\~/}";; *) p="$2";; esac; d=$(dirname "$p"); mkdir -p "$d" && printf "%s\\n" "$1" >> "$p"', "asks", line, path]); } catch {}
   }
 
   retry(ask, cx) {
+    // The earlier answer may have landed after the panel gave up: never send it twice.
+    const t = liveTerminal(ask.address);
+    if (t && ask.sent_turn != null && (t.turn ?? 0) > ask.sent_turn) return this.set(ask.id, { state: "delivered", answered_at: Date.now(), error: null, note: "Picked up late" });
     if (ask.chosen?.text) return this.sendText(ask, ask.chosen.text, cx);
     if (ask.chosen) return this.answer(ask, ask.chosen, cx);
     this.set(ask.id, { state: "pending", error: null });

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **No more false "failed" cards** (issue #1). After an answer, the panel polls the agent for up
+  to 8 s and counts the terminal's turn moving on as delivered, so a fast agent that already
+  replied, or a paste hc held until the terminal went quiet, no longer fails the card. Retry
+  never sends an answer twice: a card whose agent moved on becomes "Picked up late", and the
+  engine heals such cards on its own.
+- **Faster.** The classifier starts the Claude CLI without your MCP servers and settings, which
+  cuts a plain-text question's detection from ~6 s to ~3 s; the engine ticks every second.
+- **Log path** (issue #2). `log` accepts `~/…`; the README says the default lands in the
+  agent's repo and how to move it.
+
 ## 0.2.2 · 2026-11-10
 
 - **Preview, take two.** The product shot now shows the options on every card: the plain-text

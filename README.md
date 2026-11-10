@@ -113,7 +113,10 @@ false` keeps it to dialogs only; `classify: "off"` never calls a model.
 ```
 
 - `label`: the words on the tab-bar button and the panel header.
-- `log`: where answers are appended, relative to the agent's folder (`""` disables).
+- `log`: where answers are appended, relative to the agent's folder (`""` disables). `~/…` and
+  absolute paths work too. Inside a git checkout the default `docs/decisions.md` shows up in
+  `git status`, and an agent that commits everything will commit it: add it to `.gitignore`, or
+  point `log` outside the repo, e.g. `"~/.config/herdr-app/decisions.md"`.
 - `classify`: `auto` (model only when the report and screen say nothing usable), `always`
   (also adds a context line for parsed asks), `off` (never call a model).
 - `trailing_questions`: check every finished turn for a plain-text question (needs the model).

@@ -24,7 +24,7 @@ export default class Tabs extends View {
     const config = (cx) => cx.spawn(async (cx) => { this.engine.config = await loadConfig(); cx.notify(); });
     config(cx);
     cx.timer.every(30000, config);
-    cx.timer.every(2000, (cx) => this.engine.tick(cx));
+    cx.timer.every(1000, (cx) => this.engine.tick(cx));
     cx.spawn(async (cx) => {
       for (;;) {
         const c = await nextCommand();

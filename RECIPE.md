@@ -84,15 +84,22 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   must all appear verbatim on screen and confidence must be ≥ 0.6, else the card is `UNCLEAR`
   with `Open terminal` only.
 - Clicking an option: first `terminals()` is checked (still live, still `blocked`, same report
-  msg), else the card becomes `Resolved in terminal`. Then `hc keys <t> <n>`; after 0.9 s, if
-  `hc get` still shows the same dialog, `hc keys <t> enter`; after 1.5 s more, still the same
-  dialog means `failed` ("The agent did not accept the answer") with Retry. Claude Code selects
-  on the number alone.
+  msg), else the card becomes `Resolved in terminal`. Then `hc keys <t> <n>`; `hc get` is polled
+  every 0.4 s for up to 1.5 s, and if the same dialog is still there, `hc keys <t> enter`, then
+  polled for up to 8 s. The dialog gone, or the terminal's `turn` past the one the answer was sent
+  on, means delivered; still the same dialog after 8 s means `failed` with Retry. Claude Code
+  selects on the number alone.
 - On a `delivery: "send"` card, clicking an option sends its label (minus `(recommended)`) with
-  `hc send <t> "<text>"`; the agent must still be idle or done on the same turn, and delivery
-  counts once it is no longer idle 1.5 s later. The button reads `Answer` when there are no options.
+  `hc send <t> "<text>"`; the agent must still be idle or done on the same turn. Delivered means
+  the agent is no longer idle, or its `turn` moved past the one the answer was sent on, polled for
+  up to 8 s. The `turn` check matters: a fast agent can take the answer, reply and be `done` again
+  before the first poll (issue #1), and hc holds a paste until nobody has typed in that terminal
+  for ~3 s. The button reads `Answer` when there are no options.
 - `Other answer`: `hc send --force <t> "<text>"` while the dialog is up (Claude Code's question
-  dialog takes typed text as the answer); `hc send --if idle` otherwise. Same 1.5 s check.
+  dialog takes typed text as the answer); `hc send --if idle` otherwise. Same 8 s poll.
+- A `failed` card remembers `sent_turn`. Retry first checks the turn: moved on means the earlier
+  answer landed late, so the card becomes delivered ("Picked up late") instead of sending twice.
+  The engine's tick does the same for failed cards whose agent moved on.
 - Delivered: the card collapses into the Answered list and one line is appended to
   `<agent cwd>/docs/decisions.md`:
   `- 2026-11-07 22:41 · asks-test · DECISION · Which font should the heading use? → Geist (Recommended)`.
@@ -163,7 +170,7 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   there is no parent terminal, so the text arrives bare. `notes = false` in
   `~/.config/herdr-core/config.toml` turns the tags off everywhere.
 - A person can answer the dialog in the terminal while a card is open; the pre-send check and the
-  2 s tick turn such cards stale. A key pressed by the panel after the dialog closed would land in the
+  1 s tick turn such cards stale. A key pressed by the panel after the dialog closed would land in the
   agent's prompt line, which is why the check happens right before `hc keys`.
 - Claude Code's permission dialog option 2 is long (`Yes, and switch to accept edits … (shift+tab)`):
   it is shown truncated with the full text in the tooltip, never shortened in the data.

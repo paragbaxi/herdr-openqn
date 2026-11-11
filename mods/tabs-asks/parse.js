@@ -3,9 +3,9 @@
 // tests/` runs them against real screens in tests/fixtures.
 
 // A prompt the person sent, not the input box at the bottom (which sits under a rule
-// and may hold text typed but not yet sent).
+// and may hold text typed but not yet sent), nor a dialog's cursor ("❯ 1. Yes").
 function sentPrompt(lines, i) {
-  if (!/^❯\s+\S/.test(lines[i])) return false;
+  if (!/^❯\s+\S/.test(lines[i]) || OPTION.test(lines[i])) return false;
   let j = i - 1;
   while (j >= 0 && !lines[j].trim()) j--;
   return !(j >= 0 && RULE.test(lines[j]));
@@ -78,11 +78,12 @@ export function parseScreen(text) {
     }
   }
   // Context: the agent's last line of prose in the current turn (after the last prompt the person sent).
+  // Claude Code marks its own lines ⏺ on macOS and ● elsewhere: both count.
   let start = 0;
   for (let i = lines.length - 1; i >= 0; i--) if (sentPrompt(lines, i)) { start = i; break; }
   for (let i = lines.length - 1; i >= start; i--) {
     const l = lines[i];
-    if (/^⏺\s+\S/.test(l) && !/^⏺\s+(User answered|Write\(|Read\(|Bash\(|Edit\()/.test(l)) { context = l.replace(/^⏺\s+/, "").trim(); break; }
+    if (/^[⏺●]\s+\S/.test(l) && !/^[⏺●]\s+(User answered|Write\(|Read\(|Bash\(|Edit\()/.test(l)) { context = l.replace(/^[⏺●]\s+/, "").trim(); break; }
   }
   return { options, cursor, context, question };
 }
@@ -157,14 +158,14 @@ export function parseClaudeMessage(text) {
   if (start < 0) return { message: "", hasQuestion: false };
   // Skip the prompt's own continuation lines.
   let i = start + 1;
-  while (i < lines.length && /^\s{2,}\S/.test(lines[i]) && !/^\s*[⏺•·✻✢✶✽*]/.test(lines[i])) i++;
+  while (i < lines.length && /^\s{2,}\S/.test(lines[i]) && !/^\s*[⏺●•·✻✢✶✽*]/.test(lines[i])) i++;
   const out = [];
   for (; i < lines.length; i++) {
     const l = lines[i];
     if (/^[✻✢✶✽*]\s.*·\s*(done|idle)/.test(l) || RULE.test(l) || /^❯/.test(l)) break;
     if (/^\s*(⎿|Searched for|Read \d|Ran \d|Listed \d|Wrote \d|Edited \d)/.test(l)) continue;
-    if (/^[⏺•]\s+(Write|Read|Bash|Edit|Grep|Glob|Update|Search|Task)\(/.test(l)) continue;
-    out.push(l.replace(/^[⏺•]\s+/, "").trimEnd());
+    if (/^[⏺●•]\s+(Write|Read|Bash|Edit|Grep|Glob|Update|Search|Task)\(/.test(l)) continue;
+    out.push(l.replace(/^[⏺●•]\s+/, "").trimEnd());
   }
   const message = out.join("\n").trim();
   return { message, hasQuestion: /\?(\s|$)/.test(message) };

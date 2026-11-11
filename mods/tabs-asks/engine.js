@@ -4,9 +4,23 @@
 import { terminals, agents, focused, hc, exec, notify, appHome } from "herdr";
 import { readState, update, hash, statusOf, reportOf, msgOf, agentName, MAX_ASKS, KEEP_MS } from "./state.js";
 import { SCHEMA, normalize, parseScreen, parseReport, parseLastMessage } from "./parse.js";
+import { parseTabs, parseTab } from "./dialog.js";
 export { SCHEMA, normalize, parseScreen, parseReport, parseLastMessage, parseClaudeMessage, parseCodexMessage } from "./parse.js";
 const MAX_CHECKED = 300;
 const one = (s) => (s ?? "").replace(/\s+/g, " ").trim();
+
+// Read the screen until the dialog's shown tab passes `ok`, or `ms` runs out; the last tab read.
+// (hc holds keys until nobody has typed in that terminal for a moment, hence the wait.)
+export async function waitTab(address, ok, sleep, ms = 6000) {
+  const until = Date.now() + ms;
+  let shown = null;
+  for (;;) {
+    const r = await hc(["read", address, "--json"]);
+    if (r.code === 0) { try { shown = parseTab(JSON.parse(r.stdout).text ?? ""); } catch {} }
+    if ((shown && ok(shown)) || Date.now() >= until) return shown;
+    await sleep(200);
+  }
+}
 
 export class Engine {
   constructor() { this.config = null; this.enriching = new Set(); this.notified = new Set(); this.checking = new Set(); this.started = false; }
@@ -62,6 +76,14 @@ export class Engine {
         }
         if (a.state === "sending") continue;
         if (a.state !== "pending") continue;
+        // The card's title follows the tab: a tab renamed (or an agent that names its terminal)
+        // after the card was made shows its name now, and the decisions log gets it too.
+        const ag = t ? list.find((x) => x.address === a.address) : null;
+        if (ag) {
+          const name = agentName(ag, t);
+          if (name && name !== a.agent) a.agent = name;
+          if (ag.space_name && ag.space_name !== a.space_name) a.space_name = ag.space_name;
+        }
         const gone = !t ? "Agent closed"
           : a.delivery === "send" ? ((st === "idle" || st === "done") && (t.turn ?? 0) === (a.turn ?? 0) ? null : "Answered in terminal")
           : st !== "blocked" || msgOf(t) !== a.msg ? "Resolved in terminal" : null;
@@ -113,7 +135,21 @@ export class Engine {
         const text = screen?.text ?? "";
         const parsed = parseScreen(text);
         const patch = { raw: text.split("\n").slice(-40).join("\n").slice(-3000), context: parsed.context, enriched: true };
-        if (ask.source === "report") {
+        // What the agent said before it stopped, for the card's "More".
+        const said = parseLastMessage(text, ask.app ?? null).message;
+        if (said) patch.message = said.slice(-4000);
+        // Claude Code's permission dialogs take a reason with a "no" ("Tab to amend").
+        if (/Tab to amend/.test(text)) patch.amend = true;
+        const tabs = ask.source === "report" ? parseTabs(text) : null;
+        if (tabs) {
+          // Several questions in one dialog: read every tab, so the card can show them all and
+          // send the answers together. Tabs the person already answered here mean they're at it.
+          const questions = tabs.some((x) => x.answered) ? null : await this.readTabs(ask.address, tabs, text, cx);
+          if (questions) {
+            Object.assign(patch, { delivery: "tabs", kind: "DECISION", questions, options: [], recommended: null,
+              question: questions.length > 1 ? `${questions.length} questions: ${questions.map((q) => q.header || q.text).join(" · ")}` : questions[0].text });
+          } else patch.kind = "UNCLEAR";
+        } else if (ask.source === "report") {
           // Keep the report's words; take the screen's numbering, question line and details when they line up.
           if (ask.options.length && parsed.options.length >= ask.options.length && ask.options.every((o, i) => parsed.options[i].label.startsWith(o.label.slice(0, 12)))) {
             patch.options = ask.options.map((o, i) => ({ ...o, n: parsed.options[i].n, detail: parsed.options[i].detail }));
@@ -126,7 +162,7 @@ export class Engine {
           patch.kind = parsed.options.some((o) => /^yes\b/i.test(o.label)) && parsed.options.some((o) => /^no\b/i.test(o.label)) ? "APPROVAL" : "DECISION";
           if (parsed.question) patch.question = parsed.question;
         }
-        if (this.config?.classify !== "off" && (this.config?.classify === "always" || (ask.source !== "report" && !patch.options?.length))) {
+        if (!tabs && this.config?.classify !== "off" && (this.config?.classify === "always" || (ask.source !== "report" && !patch.options?.length))) {
           const model = await this.classify(text, ask);
           if (model) {
             const seen = model.options.filter((o) => text.includes(o));
@@ -141,6 +177,33 @@ export class Engine {
         update((s) => { const a = s.asks.find((x) => x.id === id); if (a) Object.assign(a, patch); });
       } finally { this.enriching.delete(id); cx.notify(); }
     });
+  }
+
+  // Read each tab of a several-question dialog: `right` shows the next one without answering
+  // it, and `left` goes back. Returns the questions, or null if any tab could not be read
+  // (the dialog is then left on its first tab, as it was).
+  async readTabs(address, tabs, text, cx) {
+    const sleep = (ms) => new Promise((res) => cx.timer.after(ms, () => res()));
+    const questions = [];
+    let shown = parseTab(text), moved = 0;
+    for (let i = 0; i < tabs.length; i++) {
+      if (i > 0) {
+        const r = await hc(["keys", address, "right"]);
+        if (r.code !== 0) break;
+        moved++;
+        const prev = questions[i - 1].text;
+        shown = await waitTab(address, (p) => p.question !== prev, sleep);
+      }
+      if (!shown || shown.review || !shown.options.length) break;
+      questions.push({ header: tabs[i].header, text: shown.question, options: shown.options.map(({ n, label, detail }) => ({ n, label, detail })),
+        recommended: shown.recommended, multi: shown.multi, other: shown.multi ? null : shown.other });
+    }
+    if (moved) {
+      await hc(["keys", address, ...Array(moved).fill("left")]);
+      await waitTab(address, (p) => p.question === questions[0]?.text, sleep);
+    }
+    this.debug(`${address} tabs: ${questions.length}/${tabs.length} read`);
+    return questions.length === tabs.length ? questions : null;
   }
 
   // With `debug: true` in asks.json, one line per step goes to ~/.config/herdr-app/asks.log.

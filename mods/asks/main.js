@@ -179,21 +179,21 @@ export default class Asks extends View {
       .hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click((_e, cx) => fn(cx)).child(svg(icon).size(12)).child(label);
     const option = (o, i) => v_flex().id(`opt-${ask.id}-${o.n}`).w_full().px(10).py(6).gap(2).rounded(8).border_1().border_color(ask.recommended === i ? t.accent : t.border).bg(t.background)
       .when(!sending, (el) => el.cursor_pointer().hover((s) => s.bg(t.hover).border_color(t.input)).on_click((_e, cx) => this.answer(ask, o, cx)))
-      .child(h_flex().gap(8).items_center()
-        .child(div().w(18).h(18).flex_none().rounded(4).flex().items_center().justify_center().text_size(10.5).font_semibold().bg(t.raised).text_color(t.muted).child(String(o.n)))
-        .child(div().flex_1().min_w(0).truncate().text_size(12.5).tooltip(o.label).child(o.label))
-        .when(ask.recommended === i, (el) => el.child(div().text_size(10).flex_none().text_color(t.accent).child("recommends"))))
-      .when(Boolean(o.detail), (el) => el.child(div().pl(26).text_size(11).text_color(t.dim).truncate().child(o.detail)));
+      .child(h_flex().gap(8).items_start()
+        .child(div().w(18).h(18).mt(1).flex_none().rounded(4).flex().items_center().justify_center().text_size(10.5).font_semibold().bg(t.raised).text_color(t.muted).child(String(o.n)))
+        .child(div().flex_1().min_w(0).text_size(12.5).child(o.label))
+        .when(ask.recommended === i, (el) => el.child(div().mt(3).text_size(10).flex_none().text_color(t.accent).child("recommends"))))
+      .when(Boolean(o.detail), (el) => el.child(div().pl(26).text_size(11).text_color(t.dim).child(o.detail)));
     return v_flex().id(`ask-${ask.id}`).w_full().p(12).gap(8).rounded(10).bg(t.surface).border_1().border_color(failed ? t.blocked : t.border)
-      .child(h_flex().gap(8).items_center()
-        .child(iconOf(ask.program, 16, t.muted))
-        .child(div().min_w(0).truncate().font_semibold().text_size(12.5).child(ask.agent))
-        .when(this.all && Boolean(ask.space_name), (el) => el.child(div().min_w(0).truncate().text_size(11).text_color(t.dim).child(`· ${ask.space_name}`)))
+      .child(h_flex().gap(8).items_start()
+        .child(div().flex_none().mt(2).child(iconOf(ask.program, 16, t.muted)))
+        .child(div().min_w(0).font_semibold().text_size(12.5).child(ask.agent))
+        .when(this.all && Boolean(ask.space_name), (el) => el.child(div().min_w(0).mt(1).text_size(11).text_color(t.dim).child(`· ${ask.space_name}`)))
         .child(div().flex_1())
         .when(sending, (el) => el.child(svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
-        .child(div().flex_none().text_size(11).text_color(t.dim).child(age(now - ask.detected_at))))
-      .child(h_flex().gap(8).items_center().child(chip(ask.kind, color))
-        .when(Boolean(ask.context), (el) => el.child(div().flex_1().min_w(0).truncate().text_size(11).text_color(t.dim).tooltip(ask.context).child(ask.context))))
+        .child(div().flex_none().mt(1).text_size(11).text_color(t.dim).child(age(now - ask.detected_at))))
+      .child(h_flex().gap(8).items_start().child(chip(ask.kind, color))
+        .when(Boolean(ask.context), (el) => el.child(div().flex_1().min_w(0).text_size(11).text_color(t.dim).child(ask.context))))
       .child(div().w_full().text_size(13).text_color(t.foreground).child(ask.question || (ask.enriched ? "Needs you in the terminal" : "Reading the dialog…")))
       .when(ask.options.length > 0 && ask.kind !== "UNCLEAR", (el) => el.child(v_flex().w_full().gap(5).children(ask.options.map(option))))
       .when(questions.length > 1, (el) => el.child(v_flex().w_full().gap(4).children(questions.map((q, i) => {
@@ -236,11 +236,11 @@ export default class Asks extends View {
 
   receipt(ask, t, now) {
     const delivered = ask.state === "delivered";
-    return h_flex().id(`rc-${ask.id}`).w_full().h(26).px(8).gap(7).items_center().rounded(7).text_size(11.5).text_color(t.muted).hover((s) => s.bg(t.hover))
+    return h_flex().id(`rc-${ask.id}`).w_full().min_h(26).px(8).py(4).gap(7).items_start().rounded(7).text_size(11.5).text_color(t.muted).hover((s) => s.bg(t.hover))
       .cursor_pointer().on_click(() => this.open(ask))
-      .child(svg(delivered ? "mods/asks/check.svg" : "mods/asks/x.svg").size(11).flex_none().text_color(delivered ? t.done : t.dim))
-      .child(div().flex_none().max_w(90).truncate().text_color(t.foreground).child(ask.agent))
-      .child(div().flex_1().min_w(0).truncate().child(delivered ? `→ ${one(ask.answer)}` : ask.note ?? ask.state))
+      .child(svg(delivered ? "mods/asks/check.svg" : "mods/asks/x.svg").size(11).mt(4).flex_none().text_color(delivered ? t.done : t.dim))
+      .child(div().flex_none().max_w(90).truncate().text_color(t.foreground).tooltip(ask.agent).child(ask.agent))
+      .child(div().flex_1().min_w(0).child(delivered ? `→ ${one(ask.answer)}` : ask.note ?? ask.state))
       .child(div().flex_none().text_color(t.dim).child(age(now - (ask.answered_at ?? ask.ended_at ?? ask.detected_at))));
   }
 

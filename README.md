@@ -24,7 +24,8 @@ can read what was decided instead of asking again.
   Click the button or press `cmd-shift-a`. One panel per space; `All` shows every space.
 - **Cards** with the agent, the kind (`APPROVAL`, `DECISION`, `QUESTION`, `UNCLEAR`), the
   question, the options verbatim with the agent's recommendation marked, an `Other answer`
-  box, `Open terminal` and `Dismiss`.
+  box (several lines; ⌘Enter or `Send` sends it), `More` (what the agent said before it
+  stopped, with its links), `No, because…` on approvals, `Open terminal` and `Dismiss`.
 - An **Answered** list under the cards, with `Clear` to empty it, and a line per answer in
   the decisions log (`~/.config/herdr-app/decisions/<space>.md`).
 
@@ -59,7 +60,21 @@ answer sends it to the agent as a message. Rhetorical "let me know if…" ending
 A message that asks several questions at once becomes one card that lists them. Click a
 question to unfold the choices the agent gave for it (or type your own); each pick is kept as a
 draft and `Send answers (2/3)` delivers them together as one numbered message. The questions
-themselves are never offered as clickable answers.
+themselves are never offered as clickable answers. After each pick the next unanswered
+question opens, and `Take recommended` fills every unanswered one with the agent's pick.
+
+**Several questions in one dialog.** Claude Code's AskUserQuestion can ask several questions
+at once, one tab each, but its status report names only the first. The engine reads every tab
+(it presses → to see each one and ← to come back, without answering anything), so the card
+lists them all: pick an option, tick several on a pick-any question, or type your own.
+`Send answers (3/3)` appears once each has an answer; it enters them tab by tab, checks each
+one took, and submits.
+
+**No, with a reason.** On a Claude Code permission dialog, `No, because…` opens a box: what you
+type goes with the no (Claude Code's "Tab to amend"), so the agent hears what to do instead.
+
+**A card's name follows its tab.** Rename the tab while a card waits and the card shows the
+new name; the decisions log gets it too.
 
 **Spaces show a count too.** The spaces list in the sidebar gets a red pill with the number of
 asks waiting in each space, so a space you are not looking at still tells you it needs you.

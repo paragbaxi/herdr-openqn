@@ -182,8 +182,8 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   `Reading the dialog…`.
 - `exec` has a 30 s limit; Haiku answers in 2–7 s. The model is never on the path for a Claude
   Code dialog, but it is for every finished turn with a `?` in it (`trailing_questions`).
-- A terminal labelled `asks.trailing=off` gets no finished-turn check (the turn is still marked
-  checked, so taking the label off doesn't card an old turn), its pending `delivery: "send"`
+- A terminal labelled `asks.trailing=off` gets no finished-turn check (the turn isn't marked
+  checked, so taking the label off checks the turn it last finished), its pending `delivery: "send"`
   card goes stale with the note `Asked elsewhere`, and `checkTurn` looks at the label again
   before it adds a card, since the model takes seconds. Dialog cards are unaffected.
 - Do not filter finished turns by `report.app` or `t.agent`: the app's `terminals()` entries

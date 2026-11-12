@@ -134,7 +134,8 @@ export function parseLastMessage(text) {
 // A terminal labelled asks.trailing=off has its questions carded by something else (a task
 // runner asking the person itself): its finished turns make no card here, and a card made
 // from one before the label came goes, so the person never sees the same question twice.
-// Its dialogs still make cards. `hc label <terminal> asks.trailing=off`; `asks.trailing=` ends it.
+// Its dialogs still make cards. `hc label <terminal> asks.trailing=off`; `asks.trailing=` ends it,
+// and the turn the terminal last finished is checked then, as if it had just ended.
 const trailingOff = (t) => t?.labels?.["asks.trailing"] === "off";
 
 export class Engine {
@@ -204,9 +205,10 @@ export class Engine {
         if (st !== "done" && st !== "idle") continue;
         const key = `${t.address}:p:${t.turn ?? 0}`;
         if (checked.has(key) || s.asks.some((a) => a.id === key)) continue;
+        // Not marked checked: once the label comes off, the turn it ended on is checked then.
+        if (trailingOff(t)) continue;
         checked.add(key); s.checked.push(key);
         if (!this.started && st === "idle") continue;
-        if (trailingOff(t)) continue;
         toCheck.push(t);
       }
       if (s.checked.length > MAX_CHECKED) s.checked = s.checked.slice(-MAX_CHECKED);

@@ -122,9 +122,10 @@ false` keeps it to dialogs only; `classify: "off"` never calls a model.
 - `trailing_questions`: check every finished turn for a plain-text question (needs the model).
   A terminal labelled `asks.trailing=off` is left out: for a tool that shows that agent's
   questions in its own card, so the question isn't carded twice. `hc label <terminal>
-  asks.trailing=off` sets it and `hc label <terminal> asks.trailing=` takes it off. A card made
-  from the terminal before the label came goes, noted `Asked elsewhere`; its dialogs still make
-  cards.
+  asks.trailing=off` sets it and `hc label <terminal> asks.trailing=` takes it off, which checks
+  the turn the terminal last finished then: so the tool can hand a question back to Asks. A card
+  made from the terminal before the label came goes, noted `Asked elsewhere`; its dialogs still
+  make cards.
 - `group_spaces_by_machine`: once another machine is added, the spaces list puts a header per
   machine over its spaces, as Herdr's own list does; `false` keeps one flat list with no
   headers.

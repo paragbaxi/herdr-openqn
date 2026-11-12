@@ -32,10 +32,11 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   a 20 px `All` toggle chip.
 - A dim line: `N waiting · M answered today`.
 - Cards, 12 px padding, `t.surface`, 10 px radius, 8 px apart, newest first:
-  1. the agent's program icon (16 px), its sidebar name semibold, the space name when `All` is on,
-     a spinner while sending, the age (`<1m`, `3m`, `2h`). Every text on a card wraps in the
-     card's width and is never cut short; a row whose text can run to several lines aligns to
-     its first line, so its badge, chip or icon stays level with it.
+  1. the agent's program icon (16 px), its sidebar name semibold, the space name when `All` is on
+     (beside the name when both fit, else on the next line), a spinner while sending, the age
+     (`<1m`, `3m`, `2h`). Every text on a card wraps in the card's width and is never cut
+     short; a row whose text can run to several lines aligns to its first line, so its badge,
+     chip or icon stays level with it.
   2. a kind chip, 16 px, 10 px semibold uppercase on a colour: `APPROVAL` on `t.blocked`,
      `DECISION` on `t.accent`, `QUESTION` on `t.working`, `UNCLEAR` on `t.dim`; then the context
      line (the agent's last prose line this turn) in `t.dim`, wrapping; at the right, `More`

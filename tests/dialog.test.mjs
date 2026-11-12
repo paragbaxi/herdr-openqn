@@ -77,6 +77,31 @@ test("tab: the review page, and whether an answer is missing", () => {
   assert.equal(parseTab(screen.replace(/^.*not answered all.*$/m, "")).incomplete, false);
 });
 
+test("tab: the bar Claude Code draws before a question is not part of it", () => {
+  const t = parseTab(fixture("claude-tabs-bar"));
+  assert.equal(t.question, "Which settings layout should the demo app use when someone opens it for the first time on a small laptop screen?");
+  assert.deepEqual(t.options.map((o) => o.label), [
+    "One long page with every setting grouped under clear headings",
+    "Tabs across the top, one for each group of settings",
+    "A search box first, with the most used settings listed below it",
+  ]);
+  assert.equal(t.options[0].detail, "Simple to scan, though the page grows long as more settings arrive");
+  assert.equal(t.other, 4);
+  assert.equal(t.cursor, 1);
+});
+
+test("tab: a question too long for the terminal's width is read whole", () => {
+  const long = "Which settings layout should the demo app use when someone opens it for the first time on a small laptop screen?";
+  // The same screen in a narrower pane, where the question runs on over two lines.
+  const narrow = fixture("claude-tabs-bar").replace(`│ ${long}`, "│ Which settings layout should the demo app use when someone opens\n│ it for the first time on a small laptop screen?");
+  assert.notEqual(narrow, fixture("claude-tabs-bar"));
+  assert.equal(parseTab(narrow).question, long);
+  const plain = fixture("claude-tabs-size").replace("Which size?", "Which size should the pizza be, given that\nfour people are sharing it?");
+  assert.equal(parseTab(plain).question, "Which size should the pizza be, given that four people are sharing it?");
+  // A blank line ends the question: the review page's notes aren't part of it.
+  assert.equal(parseTab(fixture("claude-tabs-review")).question, "Review your answers");
+});
+
 test("tab: one question with several picks gets a tab bar too", () => {
   const screen = fixture("claude-tabs-one-question");
   assert.deepEqual(parseTabs(screen), [{ header: "Toppings", answered: false }]);

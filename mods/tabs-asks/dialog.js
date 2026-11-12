@@ -9,6 +9,8 @@
 const TABBAR = /^\s*←\s+(.*?)\s+→\s*$/;
 const OPTION_LINE = /^\s*(❯\s*)?(\d{1,2})\.\s+(.*?)\s*$/;
 const RULE_LINE = /^[\s─╌═━]+$/;
+// Claude Code may draw a bar before a tab's question: "│ Which colour?".
+const QUOTE_BAR = /^\s*│\s?/;
 function lastBar(lines) {
   for (let i = lines.length - 1; i >= Math.max(0, lines.length - 40); i--) {
     if (TABBAR.test(lines[i])) return i;
@@ -30,18 +32,22 @@ export function parseTabs(text) {
 // The tab on screen: its question, its options ({ n, label, detail }; a multi-pick tab's
 // "[ ] " is taken off and `multi` set), the number of its "Type something" row (`other`),
 // the cursor's row, and whether it is the closing "Review your answers" page (`review`,
-// with the number of "Submit answers" in `submit`).
+// with the number of "Submit answers" in `submit`). A question too long for the terminal's
+// width runs on over the next lines, up to a blank line or the first option: all of it is
+// the question.
 export function parseTab(text) {
   const lines = (text ?? "").replace(/\r/g, "").split("\n");
   const bar = lastBar(lines);
   if (bar < 0) return null;
-  let question = "", other = null, cursor = null, multi = false, submit = null, last = null;
+  let question = "", asked = false, other = null, cursor = null, multi = false, submit = null, last = null;
   const options = [];
   for (const line of lines.slice(bar + 1)) {
     const m = OPTION_LINE.exec(line);
     if (!m) {
-      if (!options.length && other == null && !question && line.trim() && !RULE_LINE.test(line)) question = line.trim();
+      const text = line.replace(QUOTE_BAR, "").trim();
+      if (!options.length && other == null && !asked && text && !RULE_LINE.test(line)) question = question ? `${question} ${text}` : text;
       else if (last && !last.detail && /^\s{4,}\S/.test(line) && !RULE_LINE.test(line)) last.detail = line.trim();
+      if (question && (!text || RULE_LINE.test(line))) asked = true;
       if (RULE_LINE.test(line) && (options.length || other != null)) break;
       last = null;
       continue;

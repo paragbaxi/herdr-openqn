@@ -131,6 +131,12 @@ export function parseLastMessage(text) {
   return { message, hasQuestion: /\?(\s|$)/.test(message) };
 }
 
+// A terminal labelled asks.trailing=off has its questions carded by something else (a task
+// runner asking the person itself): its finished turns make no card here, and a card made
+// from one before the label came goes, so the person never sees the same question twice.
+// Its dialogs still make cards. `hc label <terminal> asks.trailing=off`; `asks.trailing=` ends it.
+const trailingOff = (t) => t?.labels?.["asks.trailing"] === "off";
+
 export class Engine {
   constructor() { this.config = null; this.enriching = new Set(); this.notified = new Set(); this.checking = new Set(); this.started = false; }
 
@@ -182,6 +188,7 @@ export class Engine {
         }
         if (a.state !== "pending") continue;
         const gone = !t ? "Agent closed"
+          : a.delivery === "send" && trailingOff(t) ? "Asked elsewhere"
           : a.delivery === "send" ? ((st === "idle" || st === "done") && (t.turn ?? 0) === (a.turn ?? 0) ? null : "Answered in terminal")
           : st !== "blocked" || msgOf(t) !== a.msg ? "Resolved in terminal" : null;
         if (!gone) { delete a.gone_since; continue; }
@@ -199,6 +206,7 @@ export class Engine {
         if (checked.has(key) || s.asks.some((a) => a.id === key)) continue;
         checked.add(key); s.checked.push(key);
         if (!this.started && st === "idle") continue;
+        if (trailingOff(t)) continue;
         toCheck.push(t);
       }
       if (s.checked.length > MAX_CHECKED) s.checked = s.checked.slice(-MAX_CHECKED);
@@ -308,6 +316,8 @@ export class Engine {
           context: model.context, raw: message.slice(-3000), source: "model", confidence: model.confidence, enriched: true,
           answer: null, answered_at: null, error: null, note: null,
         };
+        // Labelled while the model was reading: the turn's question is carded elsewhere.
+        if (trailingOff(terminals().find((x) => x.address === t.address))) { this.debug(`${key} asks.trailing=off`); return; }
         let added = false;
         update((s) => { if (!s.asks.some((a) => a.id === key)) { s.asks.unshift(ask); added = true; } });
         if (added && this.config?.toast && focused()?.terminal !== t.address) notify({ title: `${ask.agent} is asking`, body: ask.question, level: "warning", timeout: 5000, action: { name: "tabs-asks.open" } });

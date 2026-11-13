@@ -27,7 +27,7 @@ export default class Asks extends View {
     this.other = null; this.otherText = "";
     // Multi-question cards: which question is unfolded, and the answers drafted so far
     // ({ [ask.id]: { [index]: text } }). Sent together with "Send answers".
-    this.openQ = null; this.otherQ = null; this.drafts = {};
+    this.openQ = null; this.otherQ = null; this.drafts = {}; this.openCtx = new Set();
     this.input = InputState.new({ placeholder: "Type a different answer, Enter to send" });
     this.input.on("change", (_e, cx) => { this.otherText = this.input.value(); cx.notify(); });
     this.input.on("submit", (_e, cx) => {
@@ -209,6 +209,7 @@ export default class Asks extends View {
     const sending = ask.state === "sending", failed = ask.state === "failed";
     const questions = questionsOf(ask), drafts = this.drafts[ask.id] ?? {}, drafted = Object.keys(drafts).length;
     const color = t[KIND[ask.kind] ?? "dim"];
+    const wide = this.openCtx.has(ask.id);
     const chip = (text, c) => div().px(5).h(16).flex_none().flex().items_center().rounded(4).text_size(10).font_semibold().bg(c).opacity(0.9).text_color(t.background).child(text);
     const action = (id, icon, label, fn, primary) => h_flex().id(id).h(26).px(8).gap(5).items_center().rounded(7).flex_none().text_size(11.5).cursor_pointer()
       .border_1().border_color(primary ? t.input : t.border).bg(primary ? t.raised : t.surface).text_color(primary ? t.foreground : t.muted)
@@ -228,8 +229,15 @@ export default class Asks extends View {
           .when(this.all && Boolean(ask.space_name), (el) => el.child(div().min_w(0).mt(1).text_size(11).text_color(t.dim).child(`· ${ask.space_name}`))))
         .when(sending, (el) => el.child(svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
         .child(div().flex_none().mt(1).text_size(11).text_color(t.dim).child(age(now - ask.detected_at))))
-      .child(h_flex().gap(8).items_start().child(chip(ask.kind, color))
-        .when(Boolean(ask.context), (el) => el.child(div().flex_1().min_w(0).text_size(11).text_color(t.dim).child(ask.context))))
+      // The context starts as one cut line beside the kind chip; a click on the row opens it in full, another closes it.
+      // Open, it runs on from the chip and its next lines start at the card's edge: a word a child, in a wrapping row.
+      .child(h_flex().id(`ctx-${ask.id}`).w_full().items_center()
+        .when(!wide, (el) => el.gap(8).child(chip(ask.kind, color)))
+        .when(wide, (el) => el.flex_wrap().gap_x(3).child(chip(ask.kind, color)).child(div().w(2).flex_none())
+          .children(one(ask.context).split(" ").map((w) => div().min_w(0).truncate().text_size(11).text_color(t.dim).child(w))))
+        .when(Boolean(ask.context), (el) => el.cursor_pointer()
+          .on_click((_e, cx) => { if (wide) this.openCtx.delete(ask.id); else this.openCtx.add(ask.id); cx.notify(); }))
+        .when(Boolean(ask.context) && !wide, (el) => el.child(div().flex_1().min_w(0).truncate().text_size(11).text_color(t.dim).hover((s) => s.text_color(t.muted)).child(ask.context))))
       .child(div().w_full().text_size(13).text_color(t.foreground).child(ask.question || (ask.enriched ? "Needs you in the terminal" : "Reading the dialog…")))
       .when(ask.options.length > 0 && ask.kind !== "UNCLEAR", (el) => el.child(v_flex().w_full().gap(5).children(ask.options.map(option))))
       .when(questions.length > 1, (el) => el.child(v_flex().w_full().gap(4).children(questions.map((q, i) => {

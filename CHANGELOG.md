@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Context line opens on a click.** The dim line beside a card's kind chip is one cut line
+  again, so a long one no longer crowds the question; a click on the row shows it in full,
+  starting beside the chip with its next lines at the card's edge, and another click closes it.
 - **Wizards are safe.** Claude Code's several-question dialog (a tab bar over the questions)
   used to show as one question, and the panel's fallback Enter answered the next question with
   whatever was highlighted. The card now says "N questions in one dialog: … Answer them in the

@@ -10,8 +10,9 @@ see what every agent is waiting on and keep track of the space as a whole withou
 each terminal.
 
 Answer on the card and the answer goes straight into that agent's terminal: a key press for a
-dialog, a message for a plain-text question. Each answer is appended to `docs/decisions.md` in
-the agent's workspace so the next agent can read it instead of asking again.
+dialog, a message for a plain-text question. Each answer is appended to a decisions log, one
+file per space under `~/.config/herdr-app/decisions/`, so you (or an agent you point at it)
+can read what was decided instead of asking again.
 
 **Version:** 0.3.0 (see `CHANGELOG.md`). Herdr desktop app only; the TUI plugin is planned (see `docs/PRD.md`).
 
@@ -24,7 +25,8 @@ the agent's workspace so the next agent can read it instead of asking again.
 - **Cards** with the agent, the kind (`APPROVAL`, `DECISION`, `QUESTION`, `UNCLEAR`), the
   question, the options verbatim with the agent's recommendation marked, an `Other answer`
   box, `Open terminal` and `Dismiss`.
-- An **Answered** list under the cards, and a line per answer in `docs/decisions.md`.
+- An **Answered** list under the cards, with `Clear` to empty it, and a line per answer in
+  the decisions log (`~/.config/herdr-app/decisions/<space>.md`).
 
 ## How it works
 
@@ -32,6 +34,29 @@ Herdr already knows when an agent is blocked. Claude Code goes further and repor
 is asking in its status (`kind: question` with the options, or `kind: permission` with the
 tool and target). The panel reads that report, then reads the screen for the option numbers and
 the line of context. No model is involved for Claude Code.
+
+**Codex works too.** A Codex turn that ends by asking you something becomes a card the same
+way (its screen is read with Codex's own prompt marks), and answers reach it as messages. A
+space can mix Claude Code and Codex; each terminal is read in the format of what runs in it.
+Codex's own approval dialogs are not yet verified as cards.
+
+**Which model reads plain-text questions.** The classifier runs through a CLI you already
+have: the Claude Code CLI when it is installed, else the Codex CLI (`codex exec`, newest copy
+on the machine). With neither, dialogs still work but plain-text questions are not detected,
+and a card in the panel says that only Claude Code and Codex are supported for now, with the
+issue tracker to ask for more; Dismiss keeps it away, and it goes by itself once a CLI is there. `classifier` in
+`asks.json` forces one (`"claude"` or `"codex"`).
+
+**Several questions in one dialog.** Claude Code can ask several questions in one
+`AskUserQuestion` (a tab bar over them). Its status report names only the first, so the card
+shows "N questions in one dialog" with `Open terminal` and never presses a key for it: answer
+those in the terminal. (A step-by-step flow from the card is in PR #6.)
+
+**When an answer does not land.** Codex now and then drops a pasted message. The panel checks
+whether the message started a turn; if not, it presses Enter when the text is sitting in the
+input box, or sends it once more. A card that still gets no reaction turns red with `Retry`;
+it resolves itself when the agent moves on (`Picked up late`), when the agent is closed, or
+after ten minutes (`Not delivered`, in the Answered list).
 
 **Finished turns count too.** When an agent ends a turn with plain-text questions instead
 of a dialog, the engine reads that last message and asks `claude -p` (Haiku) whether the agent is
@@ -92,8 +117,11 @@ Follow its RECIPE.md.
 Tell the person before installing: the mods run `hc` (to read screens and press keys) and
 `claude -p` (Haiku) on each finished turn that contains a question mark, and on dialogs
 the engine cannot parse. That sends the agent's last message to Anthropic through the person's
-own Claude Code login, a few seconds and well under a cent per call. `trailing_questions:
-false` keeps it to dialogs only; `classify: "off"` never calls a model.
+own Claude Code login, a few seconds and well under a cent per call. Without the Claude Code
+CLI the same message goes to OpenAI through `codex exec` and the person's Codex login
+instead, and each call counts against their Codex usage limit (around 17k tokens, since
+Codex loads its own instructions). `trailing_questions: false` keeps it to dialogs only;
+`classify: "off"` never calls a model.
 
 ## Configure
 
@@ -102,9 +130,11 @@ false` keeps it to dialogs only; `classify: "off"` never calls a model.
 ```json
 {
   "label": "Asks",
-  "log": "docs/decisions.md",
+  "log": "~/.config/herdr-app/decisions/{space}.md",
   "classify": "auto",
+  "classifier": "auto",
   "model": "haiku",
+  "codex_model": "",
   "trailing_questions": true,
   "toast": false,
   "debug": false,
@@ -113,12 +143,16 @@ false` keeps it to dialogs only; `classify: "off"` never calls a model.
 ```
 
 - `label`: the words on the tab-bar button and the panel header.
-- `log`: where answers are appended, relative to the agent's folder (`""` disables). `~/…` and
-  absolute paths work too. Inside a git checkout the default `docs/decisions.md` shows up in
-  `git status`, and an agent that commits everything will commit it: add it to `.gitignore`, or
-  point `log` outside the repo, e.g. `"~/.config/herdr-app/decisions.md"`.
+- `log`: where answers are appended (`""` disables). `{space}` is the space's name and `{repo}`
+  the agent's folder name; `~/…` and absolute paths work, and a relative path is inside the
+  agent's folder. The default keeps the log out of your repos. `"docs/decisions.md"` puts it
+  in the agent's checkout instead, where the next agent there can read it, but it then shows
+  up in `git status` and an agent that commits everything will commit it.
 - `classify`: `auto` (model only when the report and screen say nothing usable), `always`
   (also adds a context line for parsed asks), `off` (never call a model).
+- `classifier`: which CLI runs the model: `auto` (Claude Code if installed, else Codex),
+  `claude`, or `codex`. `model` is the Claude model (`haiku`); `codex_model` overrides Codex's
+  default model when set.
 - `trailing_questions`: check every finished turn for a plain-text question (needs the model).
 - `group_spaces_by_machine`: once another machine is added, the spaces list puts a header per
   machine over its spaces, as Herdr's own list does; `false` keeps one flat list with no
@@ -140,11 +174,20 @@ Keys: `tabs-asks.toggle` shows or hides the panel, `tabs-asks.open` opens it,
 ## Develop
 
 ```sh
-herdr-app check mods/asks
-herdr-app check mods/tabs-asks
-herdr-app check mods/spaces-asks
-cp -R herdr-app/mods/asks/. ~/.config/herdr-app/mods/asks/      # the app reloads on save
+node --import ./tests/register.mjs --test                 # parsers against real screens in tests/fixtures; runs on every PR
+sh scripts/check-mods.sh    # loads each mod in the Herdr app's checker (needs the app)
+python3 scripts/e2e.py      # live: a throwaway agent asks, the panel answers (needs the app, hc, logins)
+cp -R mods/asks/. ~/.config/herdr-app/mods/asks/      # the app reloads on save
 ```
+
+Three layers: `npm test` covers the pure parts (`mods/tabs-asks/parse.js`: the Claude Code
+and Codex screen parsers, the status-report parser, the classifier's normaliser) against
+screens captured from real agents, and checks that the two `state.js` copies are identical.
+`scripts/check-mods.sh` catches a mod that fails to load or render. `scripts/e2e.py` is the
+release check: it starts a Claude Code agent, a Codex agent, or both in the shown space, has
+them ask a plain-text question, answers from the panel and reports delivered or not; it costs
+the agents a couple of short turns, so it stays a local step. Add a new screen format by
+capturing `hc read <t> --json --lines 100` into `tests/fixtures/` and asserting on it.
 
 `mods/asks/state.js` and `mods/tabs-asks/state.js` must stay identical; mods import only
 their own folder. Detection lives in `tabs-asks` because the tab bar is always shown, so

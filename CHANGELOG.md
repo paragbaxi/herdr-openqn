@@ -18,12 +18,17 @@
   `apiKeyHelper`), the call is repeated with settings on and that is remembered.
 - **Classifier without Claude.** Plain-text questions are read by the Claude Code CLI when
   installed, else by the Codex CLI (`codex exec`, newest copy found); `classifier` in
-  `asks.json` forces one. With neither, a notice asks for an issue.
+  `asks.json` forces one. With neither, a card in every space says that only Claude Code and
+  Codex are supported for now and where to ask for more; it goes once a CLI turns up.
 - **Dropped pastes.** Codex sometimes drops a sent answer; the panel notices (hc reports no
   turn started) and presses Enter or resends once. Failed cards resolve themselves: delivered
   when the agent moves on, `Agent closed` when it is gone, `Not delivered` after ten minutes.
   `Open terminal` on a closed agent no longer throws a toast.
 - **Clear** on the Answered list forgets every finished card in the shown scope.
+- **Tests for the classifier.** The engine runs under `node --test` against a scripted
+  `herdr` module: Claude only, Codex only (newest binary wins), both (Claude by default,
+  `classifier` decides), and neither (no model started, one notice card that survives the
+  tick and leaves once a CLI appears).
 - **Tests.** The screen and report parsers moved to `mods/tabs-asks/parse.js` (no Herdr
   import) and run under `node --test` against real captured screens, on every PR through
   GitHub Actions. `scripts/check-mods.sh` loads the mods in the app's checker;

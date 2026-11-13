@@ -10,7 +10,7 @@ import { readState, update, stillAsking, stillIdle, liveTerminal, wizardOn, decl
 // press until nobody has typed in that terminal for ~3 s, and a turn takes a moment to start.
 const SETTLE_MS = 8000;
 
-const KIND = { APPROVAL: "blocked", DECISION: "accent", QUESTION: "working", UNCLEAR: "dim" };
+const KIND = { APPROVAL: "blocked", DECISION: "accent", QUESTION: "working", UNCLEAR: "dim", NOTICE: "dim" };
 const one = (s) => (s ?? "").replace(/\s+/g, " ").trim();
 // Questions of a multi-question card; older cards stored them as plain strings.
 const questionsOf = (ask) => (ask.questions ?? []).map((q) => typeof q === "string" ? { text: q, options: [], recommended: null } : { text: q.text, options: q.options ?? [], recommended: q.recommended ?? null });
@@ -265,7 +265,7 @@ export default class Asks extends View {
           if (this.other) this.input.focus();
           cx.notify();
         })))
-        .child(action(`open-${ask.id}`, "mods/asks/terminal.svg", "Open terminal", () => this.open(ask)))
+        .when(!ask.notice, (el) => el.child(action(`open-${ask.id}`, "mods/asks/terminal.svg", "Open terminal", () => this.open(ask))))
         .child(div().flex_1())
         .when(!sending, (el) => el.child(action(`dismiss-${ask.id}`, "mods/asks/x.svg", "Dismiss", () => this.set(ask.id, { state: "dismissed", ended_at: Date.now() })))));
   }
@@ -283,7 +283,7 @@ export default class Asks extends View {
   render(cx) {
     const t = theme(), now = Date.now();
     const space = spaces().find((s) => s.active), spaceId = space?.id ?? focused()?.space;
-    const all = readState().asks.filter((a) => this.all || a.space === spaceId);
+    const all = readState().asks.filter((a) => a.notice || this.all || a.space === spaceId);
     const pending = all.filter((a) => a.state === "pending" || a.state === "sending" || a.state === "failed");
     const done = all.filter((a) => !pending.includes(a) && a.state !== "dismissed");
     const today = done.filter((a) => a.state === "delivered" && now - a.answered_at < 86400000).length;

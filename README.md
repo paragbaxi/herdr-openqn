@@ -43,7 +43,8 @@ Codex's own approval dialogs are not yet verified as cards.
 **Which model reads plain-text questions.** The classifier runs through a CLI you already
 have: the Claude Code CLI when it is installed, else the Codex CLI (`codex exec`, newest copy
 on the machine). With neither, dialogs still work but plain-text questions are not detected,
-and a notice asks you to open an issue so your agent's CLI can be added. `classifier` in
+and a card in the panel says that only Claude Code and Codex are supported for now, with the
+issue tracker to ask for more; Dismiss keeps it away, and it goes by itself once a CLI is there. `classifier` in
 `asks.json` forces one (`"claude"` or `"codex"`).
 
 **Several questions in one dialog.** Claude Code can ask several questions in one

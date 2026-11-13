@@ -38,7 +38,7 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
      short; a row whose text can run to several lines aligns to its first line, so its badge,
      chip or icon stays level with it.
   2. a kind chip, 16 px, 10 px semibold uppercase on a colour: `APPROVAL` on `t.blocked`,
-     `DECISION` on `t.accent`, `QUESTION` on `t.working`, `UNCLEAR` on `t.dim`; then the context
+     `DECISION` on `t.accent`, `QUESTION` on `t.working`, `STOPPED` on `t.blocked`, `UNCLEAR` on `t.dim`; then the context
      line (the agent's last prose line this turn) in `t.dim`: one line cut with an ellipsis; a
      click on the row opens it in full, running on from the chip with its next lines at the
      card's edge, and another click closes it.
@@ -72,6 +72,15 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   `APPROVAL` whose options (`Yes`, `Yes, and …`, `No`) come from the screen. Right after, the
   screen (`hc read <t> --json`) is read for option numbers, descriptions, the question line above
   a permission prompt, and the context line.
+- Stopped turns: a terminal whose status is `error` (`{state: "error", msg: "API Error:
+  Connection refused …"}`, Claude Code after its retries) gets one card per turn
+  (`address:e:turn`): kind `STOPPED`, the report's `msg` as the question, `delivery: "send"`,
+  `stopped: true` and one option `{label: "Continue", send: "continue"}`; an option's `send` is
+  the message behind a button whose label is not the message. The card is open while the
+  terminal reports `error` on that turn (`stillIdle` allows `error` for a `stopped` card), goes
+  `Continued in terminal` 3 s after it does not; `asks.accept` presses its `Continue`. A logged-out agent
+  reports `{state: "blocked", kind: "auth", msg: "Please run /login · …"}`: `parseReport` makes
+  that a `STOPPED` card with no options, and the screen is not read for it. No model either way.
 - Finished turns: every `done` or `idle` turn is checked once (`address:p:turn`, remembered in
   the shared state's `checked`, the first pass skipping turns already idle). The agent's words
   since the person's last prompt are taken: for Claude Code the last `❯` prompt (tool lines and

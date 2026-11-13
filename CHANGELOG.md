@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Stopped on an error.** A turn that ends in an error the agent reports (no connection, the
+  API down) is a `STOPPED` card with `Continue`, which sends `continue`; a new card comes if the
+  next turn fails too. A logged-out agent gets a `STOPPED` card that says to run `/login` in
+  the terminal, instead of an `UNCLEAR` one. Tests run the engine against the status reports
+  and screens of Claude Code with a dead endpoint and an invalid token.
 - **Context line opens on a click.** The dim line beside a card's kind chip is one cut line
   again, so a long one no longer crowds the question; a click on the row shows it in full,
   starting beside the chip with its next lines at the card's edge, and another click closes it.

@@ -32,20 +32,24 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   a 20 px `All` toggle chip.
 - A dim line: `N waiting · M answered today`.
 - Cards, 12 px padding, `t.surface`, 10 px radius, 8 px apart, newest first:
-  1. the agent's program icon (16 px), its sidebar name semibold, the space name when `All` is on,
-     a spinner while sending, the age (`<1m`, `3m`, `2h`).
+  1. the agent's program icon (16 px), its sidebar name semibold, the space name when `All` is on
+     (beside the name when both fit, else on the next line), a spinner while sending, the age
+     (`<1m`, `3m`, `2h`). Every text on a card wraps in the card's width and is never cut
+     short; a row whose text can run to several lines aligns to its first line, so its badge,
+     chip or icon stays level with it.
   2. a kind chip, 16 px, 10 px semibold uppercase on a colour: `APPROVAL` on `t.blocked`,
      `DECISION` on `t.accent`, `QUESTION` on `t.working`, `UNCLEAR` on `t.dim`; then the context
-     line (the agent's last prose line this turn) in `t.dim`, truncated.
+     line (the agent's last prose line this turn) in `t.dim`, wrapping.
   3. the question, 13 px, wrapping.
-  4. one row per option: an 18 px number badge, the label verbatim (truncated, full text in the
-     tooltip), `recommends` in `t.accent` on the option the agent recommended (its border is
-     `t.accent` too), and the option's description under it in `t.dim`.
+  4. one row per option: an 18 px number badge, the label verbatim (wrapping), `recommends` in
+     `t.accent` on the option the agent recommended (its border is `t.accent` too), and the
+     option's description under it in `t.dim`, wrapping.
   5. actions, 26 px: `Other answer` (toggles a text input; Enter sends), `Open terminal`, and
      `Dismiss` at the right. A failed card shows the error in `t.blocked` and a `Retry` button.
-- Under the cards, a foldable `Answered N` list: one 26 px row per answered, stale or failed
-  ask: a check (or x), the agent, `→ answer` or the note (`Resolved in terminal`, `Agent
-  closed`), the age. Clicking a row focuses that agent.
+- Under the cards, a foldable `Answered N` list: one row (26 px or taller) per answered, stale
+  or failed ask: a check (or x), the agent (one line, at most 90 px, in full on hover), `→ answer`
+  or the note (`Resolved in terminal`, `Agent closed`), wrapping, the age. Clicking a row
+  focuses that agent.
 - A card for a message with several questions lists them as numbered rows under a one-line
   summary. Clicking a row unfolds the choices the agent gave for that question (its recommended
   one marked) and an `Other answer…` line; a pick turns the row's badge `t.accent` and shows
@@ -209,7 +213,7 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   1 s tick turn such cards stale. A key pressed by the panel after the dialog closed would land in the
   agent's prompt line, which is why the check happens right before `hc keys`.
 - Claude Code's permission dialog option 2 is long (`Yes, and switch to accept edits … (shift+tab)`):
-  it is shown truncated with the full text in the tooltip, never shortened in the data.
+  it wraps onto a second line, never shortened in the data.
 - The `❯` cursor line's label is what the person has typed into Claude Code's free-text option
   (e.g. `4. default gre`); it is parsed as an option only when the numbering runs from 1, and the
   report's options win over the screen's labels.

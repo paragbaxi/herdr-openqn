@@ -281,9 +281,18 @@ export class Engine {
 
   async askClaude(prompt) {
     // Skipping the person's MCP servers and settings cuts the CLI's start from ~4 s to ~1 s;
-    // the classifier needs neither (it runs no tools).
-    const r = await exec("claude", ["-p", "--no-session-persistence", "--model", this.config?.model ?? "haiku", "--output-format", "json", "--json-schema", SCHEMA,
-      "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "--setting-sources", "", prompt]);
+    // the classifier needs neither (it runs no tools). A login that lives in settings
+    // (apiKeyHelper, env) needs them though: on an auth error the call is made once more with
+    // settings on, and that is remembered.
+    const base = ["-p", "--no-session-persistence", "--model", this.config?.model ?? "haiku", "--output-format", "json", "--json-schema", SCHEMA, "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}'];
+    const lean = !this._claudeNeedsSettings;
+    let r = await exec("claude", [...base, ...(lean ? ["--setting-sources", ""] : []), prompt]);
+    const text = `${r.stderr} ${r.stdout}`;
+    if (lean && (r.code !== 0 || /"is_error":\s*true/.test(r.stdout)) && /log ?in|auth|api key|credential|unauthori[sz]ed|401/i.test(text)) {
+      this.debug("claude: auth error without settings; retrying with the person's settings on");
+      this._claudeNeedsSettings = true;
+      r = await exec("claude", [...base, prompt]);
+    }
     if (r.code !== 0) { this.debug(`claude exit ${r.code}: ${r.stderr} ${r.stdout.slice(0, 200)}`); return null; }
     const out = JSON.parse(r.stdout);
     if (out.is_error) { this.debug(`claude error: ${String(out.result).slice(0, 200)}`); return null; }

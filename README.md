@@ -116,8 +116,11 @@ Follow its RECIPE.md.
 Tell the person before installing: the mods run `hc` (to read screens and press keys) and
 `claude -p` (Haiku) on each finished turn that contains a question mark, and on dialogs
 the engine cannot parse. That sends the agent's last message to Anthropic through the person's
-own Claude Code login, a few seconds and well under a cent per call. `trailing_questions:
-false` keeps it to dialogs only; `classify: "off"` never calls a model.
+own Claude Code login, a few seconds and well under a cent per call. Without the Claude Code
+CLI the same message goes to OpenAI through `codex exec` and the person's Codex login
+instead, and each call counts against their Codex usage limit (around 17k tokens, since
+Codex loads its own instructions). `trailing_questions: false` keeps it to dialogs only;
+`classify: "off"` never calls a model.
 
 ## Configure
 

@@ -13,6 +13,9 @@
 - **Codex.** A Codex turn that ends in a plain-text question becomes a card and is answered
   with a message, like Claude Code's. A space can mix both; each terminal is read in the
   format of the program in it.
+- **Classifier on a settings-based login.** The Claude CLI is started without the person's
+  settings for speed; when that fails with an auth error (a login kept in settings, such as an
+  `apiKeyHelper`), the call is repeated with settings on and that is remembered.
 - **Classifier without Claude.** Plain-text questions are read by the Claude Code CLI when
   installed, else by the Codex CLI (`codex exec`, newest copy found); `classifier` in
   `asks.json` forces one. With neither, a notice asks for an issue.

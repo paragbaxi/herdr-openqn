@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Wizards are safe.** Claude Code's several-question dialog (a tab bar over the questions)
+  used to show as one question, and the panel's fallback Enter answered the next question with
+  whatever was highlighted. The card now says "N questions in one dialog: … Answer them in the
+  terminal." with no options; the panel reads the screen before every key press, also on
+  Retry and `asks.accept`, and presses nothing while the bar is up. A dialog declined in the
+  terminal is "Declined in terminal", not delivered. Late pickups are logged like any answer.
+  A declined dialog's remnants and login or API errors no longer become cards; box borders
+  come off dialog lines (as in PR #8). Tests cover all of it against captured screens.
 - **Codex.** A Codex turn that ends in a plain-text question becomes a card and is answered
   with a message, like Claude Code's. A space can mix both; each terminal is read in the
   format of the program in it.

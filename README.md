@@ -46,6 +46,11 @@ on the machine). With neither, dialogs still work but plain-text questions are n
 and a notice asks you to open an issue so your agent's CLI can be added. `classifier` in
 `asks.json` forces one (`"claude"` or `"codex"`).
 
+**Several questions in one dialog.** Claude Code can ask several questions in one
+`AskUserQuestion` (a tab bar over them). Its status report names only the first, so the card
+shows "N questions in one dialog" with `Open terminal` and never presses a key for it: answer
+those in the terminal. (A step-by-step flow from the card is in PR #6.)
+
 **When an answer does not land.** Codex now and then drops a pasted message. The panel checks
 whether the message started a turn; if not, it presses Enter when the text is sitting in the
 input box, or sends it once more. A card that still gets no reaction turns red with `Retry`;
@@ -165,13 +170,13 @@ Keys: `tabs-asks.toggle` shows or hides the panel, `tabs-asks.open` opens it,
 ## Develop
 
 ```sh
-node --test                 # parsers against real screens in tests/fixtures; runs on every PR
+node --import ./tests/register.mjs --test                 # parsers against real screens in tests/fixtures; runs on every PR
 sh scripts/check-mods.sh    # loads each mod in the Herdr app's checker (needs the app)
 python3 scripts/e2e.py      # live: a throwaway agent asks, the panel answers (needs the app, hc, logins)
 cp -R mods/asks/. ~/.config/herdr-app/mods/asks/      # the app reloads on save
 ```
 
-Three layers: `node --test` covers the pure parts (`mods/tabs-asks/parse.js`: the Claude Code
+Three layers: `npm test` covers the pure parts (`mods/tabs-asks/parse.js`: the Claude Code
 and Codex screen parsers, the status-report parser, the classifier's normaliser) against
 screens captured from real agents, and checks that the two `state.js` copies are identical.
 `scripts/check-mods.sh` catches a mod that fails to load or render. `scripts/e2e.py` is the

@@ -148,6 +148,13 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
   `Engine.checkTurn`, `Engine.classify` (two prompt modes, `dialog` and `message`),
   `Engine.backend` / `Engine.codexBin` / `askClaude` / `askCodex`, `Engine.recheck`
   (`tabs-asks.recheck`).
+  With no CLI, `backend()` puts one `NOTICE` card (`notice: true`, no space, shown in every
+  space, Dismiss only, never counted in badges, skipped by the stale pass) and removes it once a
+  CLI is found.
+- `tests/herdr-stub.mjs` stands in for the `herdr` module (registered by `tests/register.mjs`);
+  tests steer it through `globalThis.__herdr` (exec/hc handlers, terminals, an in-memory shared
+  store), which is how `tests/classifier.test.mjs` runs the engine's backend choice and `tick`
+  without the app.
 - `scripts/check-mods.sh` loads the three mods in `herdr-app check`; `scripts/e2e.py` runs the
   live matrix (Claude alone, Codex alone, both) against the open window.
 - `mods/spaces-asks/main.js`: Herdr's shipped `spaces` mod (0.1.13) with `waiting(spaceId)` over

@@ -14,7 +14,7 @@ dialog, a message for a plain-text question. Each answer is appended to a decisi
 file per space under `~/.config/herdr-app/decisions/`, so you (or an agent you point at it)
 can read what was decided instead of asking again.
 
-**Version:** 0.3.0 (see `CHANGELOG.md`). Herdr desktop app only; the TUI plugin is planned (see `docs/PRD.md`).
+**Version:** 0.3.5 (see `CHANGELOG.md`). Herdr desktop app only; the TUI plugin is planned (see `docs/PRD.md`).
 
 ## What you get
 

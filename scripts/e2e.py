@@ -7,6 +7,8 @@ hc, and a Claude Code login (and the Codex CLI for the codex cases).
     python3 scripts/e2e.py            # claude alone, codex alone, both together
     python3 scripts/e2e.py claude     # one case
     python3 scripts/e2e.py codex both
+    python3 scripts/e2e.py dialog     # a one-question AskUserQuestion, answered by key
+    python3 scripts/e2e.py wizard     # a two-question dialog: the card refuses, nothing is pressed
 
 Open the Asks panel first (the accept command reaches the panel only while it is shown).
 Each case costs the agents one or two short turns.
@@ -130,6 +132,51 @@ def run_case(label, progs, space):
     return results
 
 
+DIALOG = "Use the AskUserQuestion tool with ONE question: 'Which colour?' with options Green, Red, Blue. Recommend Green."
+WIZARD = "Use the AskUserQuestion tool once with TWO questions in the same call: first 'Which colour?' with options Green, Red, Blue (recommend Green); second 'Which size?' with options Small, Medium, Large (recommend Medium)."
+
+
+def run_dialog(label, prompt, wizard, space):
+    """A Claude Code dialog. `wizard`: the card must be the notice and accept must press nothing."""
+    print(f"=== {label}")
+    r = json.loads(app("do", "tab.new", "--name", "e2e-dialog", "--space", space, "--folder", os.getcwd()))
+    t, tab = r["terminal"], r["tab"]
+    time.sleep(2)
+    send(t, LAUNCH["claude"])
+    print(f"  claude {t} ready={ready(t)}")
+    send(t, prompt, force=True)
+    card = None
+    for _ in range(90):
+        time.sleep(1)
+        c = [a for a in asks(t) if a["state"] == "pending" and a.get("enriched")]
+        if c:
+            card = c[0]
+            break
+    if not card:
+        print("  NO CARD in 90 s\n" + screen(t))
+        app("do", "tab.close", "--id", tab)
+        return [(label, "claude", "no card")]
+    print(f"  card {card['kind']} wizard={card.get('wizard')} {card['question'][:70]!r} options={[o['label'] for o in card['options']]}")
+    before = screen(t)
+    app("do", "asks.accept")
+    time.sleep(6)
+    after = screen(t)
+    c = next((a for a in asks(t) if a["id"] == card["id"]), None)
+    g = get(t)
+    if wizard:
+        ok = bool(card.get("wizard")) and not card["options"] and c and c["state"] == "pending" and "☐" in after and g["status"].get("state") == "blocked"
+        print(f"  accept on a wizard: card {c['state'] if c else None}, dialog still up={'☐' in after}, agent {g['status'].get('state')} -> {'ok' if ok else 'WRONG'}")
+        subprocess.run(["hc", "keys", t, "esc"], env=ENV, capture_output=True)
+    else:
+        ok = c is not None and c["state"] == "delivered"
+        print(f"  accept: card {c['state'] if c else None}, answer={c.get('answer') if c else None}, agent {g['status'].get('state')} -> {'ok' if ok else 'WRONG'}")
+        if not ok:
+            print(after)
+    time.sleep(3)
+    app("do", "tab.close", "--id", tab)
+    return [(label, "claude", "ok" if ok else "failed")]
+
+
 def main():
     which = sys.argv[1:] or ["claude", "codex", "both"]
     status = json.loads(app("status"))
@@ -143,10 +190,14 @@ def main():
             results += run_case("Codex alone", ["codex"], space)
         elif w == "both":
             results += run_case("Claude + Codex together", ["claude", "codex"], space)
+        elif w == "dialog":
+            results += run_dialog("Claude dialog, one question", DIALOG, False, space)
+        elif w == "wizard":
+            results += run_dialog("Claude wizard, two questions", WIZARD, True, space)
         else:
-            sys.exit(f"unknown case {w!r}: claude, codex, both")
+            sys.exit(f"unknown case {w!r}: claude, codex, both, dialog, wizard")
     print("RESULTS", results)
-    sys.exit(0 if all(r[2] == "delivered" for r in results) else 1)
+    sys.exit(0 if all(r[2] in ("delivered", "ok") for r in results) else 1)
 
 
 if __name__ == "__main__":

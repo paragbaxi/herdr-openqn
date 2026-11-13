@@ -1,7 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.3.5 · 2026-11-13
 
+- **Delivery tests.** The panel's send path runs under `node --test` against a scripted hc
+  and a fake clock: a message taken, a dropped paste resent once, Enter on text left unsent,
+  no reaction (failed with the message), a decline in the terminal, Retry after the agent
+  moved on, an answer by key, and a wizard refused by both the panel and the engine. 36 tests.
+- **Live harness** gains `dialog` and `wizard` cases (`scripts/e2e.py`).
 - **Stopped on an error.** A turn that ends in an error the agent reports (no connection, the
   API down) is a `STOPPED` card with `Continue`, which sends `continue`; a new card comes if the
   next turn fails too. A logged-out agent gets a `STOPPED` card that says to run `/login` in

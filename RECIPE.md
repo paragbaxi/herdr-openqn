@@ -39,7 +39,9 @@ changes to the clone. Before adding it, know that it runs `hc` to read and answe
      chip or icon stays level with it.
   2. a kind chip, 16 px, 10 px semibold uppercase on a colour: `APPROVAL` on `t.blocked`,
      `DECISION` on `t.accent`, `QUESTION` on `t.working`, `UNCLEAR` on `t.dim`; then the context
-     line (the agent's last prose line this turn) in `t.dim`, wrapping.
+     line (the agent's last prose line this turn) in `t.dim`: one line cut with an ellipsis; a
+     click on the row opens it in full, running on from the chip with its next lines at the
+     card's edge, and another click closes it.
   3. the question, 13 px, wrapping.
   4. one row per option: an 18 px number badge, the label verbatim (wrapping), `recommends` in
      `t.accent` on the option the agent recommended (its border is `t.accent` too), and the

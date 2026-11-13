@@ -138,7 +138,8 @@ Codex loads its own instructions). `trailing_questions: false` keeps it to dialo
   "trailing_questions": true,
   "toast": false,
   "debug": false,
-  "group_spaces_by_machine": true
+  "group_spaces_by_machine": true,
+  "show_machine_names": true
 }
 ```
 
@@ -156,7 +157,9 @@ Codex loads its own instructions). `trailing_questions: false` keeps it to dialo
 - `trailing_questions`: check every finished turn for a plain-text question (needs the model).
 - `group_spaces_by_machine`: once another machine is added, the spaces list puts a header per
   machine over its spaces, as Herdr's own list does; `false` keeps one flat list with no
-  headers.
+  headers, where a space on another machine ends its row with that machine's name, dim.
+- `show_machine_names`: `false` leaves that name off too, for a flat list that never mentions
+  machines. It changes nothing while the list is grouped.
 
 The installer puts three mods in place: `asks` (the panel), `tabs-asks` (the tab bar with the
 button and the detection engine) and `spaces-asks` (the spaces list with the per-space count).

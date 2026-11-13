@@ -10,7 +10,7 @@ import { readState, update, stillAsking, stillIdle, liveTerminal, wizardOn, decl
 // press until nobody has typed in that terminal for ~3 s, and a turn takes a moment to start.
 const SETTLE_MS = 8000;
 
-const KIND = { APPROVAL: "blocked", DECISION: "accent", QUESTION: "working", UNCLEAR: "dim", NOTICE: "dim" };
+const KIND = { APPROVAL: "blocked", DECISION: "accent", QUESTION: "working", STOPPED: "blocked", UNCLEAR: "dim", NOTICE: "dim" };
 const one = (s) => (s ?? "").replace(/\s+/g, " ").trim();
 // Questions of a multi-question card; older cards stored them as plain strings.
 const questionsOf = (ask) => (ask.questions ?? []).map((q) => typeof q === "string" ? { text: q, options: [], recommended: null } : { text: q.text, options: q.options ?? [], recommended: q.recommended ?? null });
@@ -110,7 +110,8 @@ export default class Asks extends View {
   // Press the option's number; Enter only if the dialog is still there (Claude Code selects on the number alone).
   answer(ask, option, cx) {
     // A prose question: the option is sent as a message, not pressed as a key.
-    if (ask.delivery === "send") return this.sendText(ask, option.label.replace(/\s*\(recommended\)\s*$/i, ""), cx);
+    // `send` is the message behind a button whose label is not the message (Continue → "continue").
+    if (ask.delivery === "send") return this.sendText(ask, option.send ?? option.label.replace(/\s*\(recommended\)\s*$/i, ""), cx);
     if (!stillAsking(ask)) return this.stale(ask);
     const sentTurn = liveTerminal(ask.address)?.turn ?? ask.turn ?? 0;
     this.set(ask.id, { state: "sending", answer: option.label, chosen: option, error: null, sent_turn: sentTurn, sent_at: Date.now() });
@@ -135,12 +136,13 @@ export default class Asks extends View {
   // Free text into a dialog (Claude Code's question dialog takes typed text as its own answer) or to an idle agent.
   sendText(ask, text, cx) {
     const live = stillAsking(ask);
-    if (!live && !stillIdle(ask)) return this.set(ask.id, { state: "stale", note: ask.delivery === "send" ? "Answered in terminal" : "Resolved in terminal", ended_at: Date.now() });
+    if (!live && !stillIdle(ask)) return this.set(ask.id, { state: "stale", note: ask.stopped ? "Continued in terminal" : ask.delivery === "send" ? "Answered in terminal" : "Resolved in terminal", ended_at: Date.now() });
     const sentTurn = liveTerminal(ask.address)?.turn ?? ask.turn ?? 0;
     this.set(ask.id, { state: "sending", answer: text, chosen: { text }, error: null, sent_turn: sentTurn, sent_at: Date.now() });
     this.other = null; this.input.set_value(""); this.otherText = "";
     // Taken: the turn moved on, or (idle agent) it is no longer idle, or (dialog) the dialog is gone.
-    const taken = (g) => g.turn > sentTurn || (live ? !(g.state === "blocked" && g.msg === ask.msg) : !(g.state === "idle" || g.state === "done"));
+    // (A stopped agent that still reports its error on the same turn has not taken it either.)
+    const taken = (g) => g.turn > sentTurn || (live ? !(g.state === "blocked" && g.msg === ask.msg) : !(g.state === "idle" || g.state === "done" || (ask.stopped && g.state === "error")));
     this.deliver(ask, cx, async (sleep) => {
       // `hc send --json` reports whether the message started a turn. Codex now and then drops
       // a paste (seen on fresh agents, not reproducible on demand): when nothing started and the

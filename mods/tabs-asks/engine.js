@@ -23,7 +23,7 @@ export class Engine {
     const live = terminals().filter((t) => t.state === "live");
     const byAddress = new Map(live.map((t) => [t.address, t]));
     const list = agents();
-    const fresh = [], toCheck = [], healed = [];
+    const fresh = [], stopped = [], toCheck = [], healed = [];
     update((s) => {
       for (const t of live) {
         if (statusOf(t) !== "blocked") continue;
@@ -48,8 +48,31 @@ export class Engine {
           context: "", raw: "", source: parsed?.source ?? "none", confidence: parsed ? 1 : 0, enriched: false,
           answer: null, answered_at: null, error: null, note: null,
         };
+        // A logged-out agent: the report says it all, there is no dialog to read.
+        if (ask.kind === "STOPPED") ask.enriched = true;
         s.asks.unshift(ask);
         fresh.push(ask);
+      }
+      // A turn that stopped on an error the agent reports (no connection, the API down): one
+      // card per (terminal, turn) with Continue, which sends "continue" as a message.
+      for (const t of live) {
+        if (statusOf(t) !== "error") continue;
+        const id = `${t.address}:e:${t.turn ?? 0}`;
+        if (s.asks.some((a) => a.id === id)) continue;
+        for (const a of s.asks) if (a.address === t.address && a.state === "pending") { a.state = "stale"; a.note = "Resolved in terminal"; a.ended_at = now; }
+        const agent = list.find((x) => x.address === t.address) ?? null;
+        const ask = {
+          id, address: t.address, pane: agent?.pane ?? null, space: agent?.space ?? t.labels?.["herdr.space"] ?? null,
+          space_name: agent?.space_name ?? (t.labels?.where ?? "").split(" / ")[0] ?? "",
+          agent: agentName(agent, t), program: agent?.program ? { key: agent.program.key, name: agent.program.name, icon: agent.program.icon, tint: agent.program.tint } : null,
+          app: reportOf(t)?.app ?? agent?.app ?? null, cwd: t.cwd ?? null, turn: t.turn ?? 0, msg: msgOf(t),
+          detected_at: now, state: "pending", delivery: "send", stopped: true,
+          kind: "STOPPED", question: one(msgOf(t)) || "Stopped on an error", options: [{ n: 1, label: "Continue", send: "continue", detail: "" }], recommended: null,
+          context: "", raw: "", source: "report", confidence: 1, enriched: true,
+          answer: null, answered_at: null, error: null, note: null,
+        };
+        s.asks.unshift(ask);
+        stopped.push(ask);
       }
       // Right after a reload terminals() can be empty or without reports for a moment: a card
       // goes stale only when its dialog has been gone for 3 s, and never while nothing is listed.
@@ -71,6 +94,7 @@ export class Engine {
         if (a.state === "sending") continue;
         if (a.state !== "pending") continue;
         const gone = !t ? "Agent closed"
+          : a.stopped ? (st === "error" && (t.turn ?? 0) === (a.turn ?? 0) ? null : "Continued in terminal")
           : a.delivery === "send" ? ((st === "idle" || st === "done") && (t.turn ?? 0) === (a.turn ?? 0) ? null : "Answered in terminal")
           : st !== "blocked" || msgOf(t) !== a.msg ? "Resolved in terminal" : null;
         if (!gone) { delete a.gone_since; continue; }
@@ -96,8 +120,9 @@ export class Engine {
     if (this.config) this.started = true;
     for (const a of healed) logAnswer(a, this.config, a.answered_at, "picked up late");
     for (const t of toCheck) this.checkTurn(t, list.find((x) => x.address === t.address) ?? null, cx);
+    for (const ask of stopped) if (this.config?.toast && focused()?.terminal !== ask.address) notify({ title: `${ask.agent} stopped`, body: ask.question, level: "warning", timeout: 5000, action: { name: "tabs-asks.open" } });
     for (const ask of fresh) {
-      this.enrich(ask.id, cx);
+      if (ask.kind !== "STOPPED") this.enrich(ask.id, cx);
       if (this.config?.toast !== false && !this.notified.has(ask.id) && focused()?.terminal !== ask.address) {
         this.notified.add(ask.id);
         notify({ title: `${ask.agent} is asking`, body: ask.question || "needs your input", level: "warning", timeout: 5000, action: { name: "tabs-asks.open" } });

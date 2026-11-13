@@ -99,11 +99,12 @@ export function stillAsking(ask) {
 }
 
 // A prose question (the agent ended its turn asking) is still open while the agent sits on
-// that same turn, not working and not at a dialog.
+// that same turn, not working and not at a dialog. A turn that stopped on an error (a
+// `stopped` card) is open while the agent still reports that error on that turn.
 export function stillIdle(ask) {
   const t = liveTerminal(ask.address);
   const st = statusOf(t);
-  return Boolean(t) && (st === "idle" || st === "done") && (t.turn ?? 0) === (ask.turn ?? 0);
+  return Boolean(t) && (st === "idle" || st === "done" || (Boolean(ask.stopped) && st === "error")) && (t.turn ?? 0) === (ask.turn ?? 0);
 }
 
 export function agentFor(address) {

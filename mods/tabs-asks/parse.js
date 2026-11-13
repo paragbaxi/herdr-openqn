@@ -105,6 +105,9 @@ export function parseReport(report) {
     const m = /^approve\s+([^:]+):\s*([\s\S]*)$/.exec(msg);
     return { kind: "APPROVAL", question: m ? `Allow ${m[1]}: ${m[2]}` : msg.replace(/^approve\s*/, "Allow "), options: [], recommended: null, source: "report" };
   }
+  // Logged out (an expired or invalid login): nothing sent would get through, so the card
+  // has no answers and says where to fix it.
+  if (report?.kind === "auth") return { kind: "STOPPED", question: `Logged out: run /login in the terminal.${msg ? ` (${msg})` : ""}`, options: [], recommended: null, source: "report" };
   if (report?.kind) return { kind: "UNCLEAR", question: msg || `${report.kind}`, options: [], recommended: null, source: "report" };
   return null;
 }

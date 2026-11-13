@@ -58,6 +58,14 @@ input box, or sends it once more. A card that still gets no reaction turns red w
 it resolves itself when the agent moves on (`Picked up late`), when the agent is closed, or
 after ten minutes (`Not delivered`, in the Answered list).
 
+**When an agent stops on an error.** A turn that ends in an error the agent reports (no
+connection, the API down or overloaded) becomes a `STOPPED` card with the error as its text and
+one button, `Continue`, which sends `continue` to the agent as a message; `Other answer` sends
+your own words instead. The card goes when the agent works again, and a turn that fails again
+makes a new one. A logged-out agent (`Please run /login`) gets a `STOPPED` card without
+`Continue`, since nothing sent would get through: `Open terminal` and log in there. No model
+is involved. This needs an agent that reports the error in its status, as Claude Code does.
+
 **Finished turns count too.** When an agent ends a turn with plain-text questions instead
 of a dialog, the engine reads that last message and asks `claude -p` (Haiku) whether the agent is
 actually waiting on you. If so it becomes a `QUESTION` card; clicking an option or typing an

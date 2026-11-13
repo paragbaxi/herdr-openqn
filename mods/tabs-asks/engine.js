@@ -2,7 +2,7 @@
 // shown, so asks are found and counted before the panel is ever opened. The screen and
 // report parsers live in parse.js (no Herdr import), so they can be tested with plain Node.
 import { terminals, agents, focused, hc, exec, notify, appHome } from "herdr";
-import { readState, update, hash, statusOf, reportOf, msgOf, agentName, MAX_ASKS, KEEP_MS } from "./state.js";
+import { readState, update, hash, statusOf, reportOf, msgOf, agentName, wizardOn, declinedOn, logAnswer, MAX_ASKS, KEEP_MS } from "./state.js";
 import { SCHEMA, normalize, parseScreen, parseReport, parseLastMessage } from "./parse.js";
 export { SCHEMA, normalize, parseScreen, parseReport, parseLastMessage, parseClaudeMessage, parseCodexMessage } from "./parse.js";
 const MAX_CHECKED = 300;
@@ -17,7 +17,7 @@ export class Engine {
     const live = terminals().filter((t) => t.state === "live");
     const byAddress = new Map(live.map((t) => [t.address, t]));
     const list = agents();
-    const fresh = [], toCheck = [];
+    const fresh = [], toCheck = [], healed = [];
     update((s) => {
       for (const t of live) {
         if (statusOf(t) !== "blocked") continue;
@@ -54,9 +54,10 @@ export class Engine {
         // the terminal went quiet: once the agent moves on, it was delivered after all.
         if (a.state === "failed") {
           if (!t) { a.state = "stale"; a.note = "Agent closed"; a.ended_at = now; continue; }
-          const moved = a.sent_turn != null && ((t.turn ?? 0) > a.sent_turn || (a.delivery !== "send" && !(st === "blocked" && msgOf(t) === a.msg)));
-          if (moved) { a.state = "delivered"; a.answered_at = now; a.error = null; a.note = "Picked up late"; continue; }
-          // Ten minutes without a reaction: out of the way, into the Answered list, as not delivered.
+          // Only a turn that moved on means the answer landed. A dialog that merely closed may
+          // have been cancelled in the terminal: that card is resolved there, not delivered.
+          if (a.sent_turn != null && (t.turn ?? 0) > a.sent_turn) { a.state = "delivered"; a.answered_at = now; a.error = null; a.note = "Picked up late"; healed.push(a); continue; }
+          if (a.delivery !== "send" && !(st === "blocked" && msgOf(t) === a.msg)) { a.state = "stale"; a.note = "Resolved in terminal"; a.ended_at = now; continue; }
           if (now - (a.sent_at ?? a.detected_at) > 10 * 60 * 1000) { a.state = "stale"; a.note = "Not delivered"; a.ended_at = now; }
           continue;
         }
@@ -86,6 +87,7 @@ export class Engine {
       s.asks = s.asks.filter((a) => a.state === "pending" || a.state === "sending" || now - (a.ended_at ?? a.answered_at ?? a.detected_at) < KEEP_MS).slice(0, MAX_ASKS);
     });
     if (this.config) this.started = true;
+    for (const a of healed) logAnswer(a, this.config, a.answered_at, "picked up late");
     for (const t of toCheck) this.checkTurn(t, list.find((x) => x.address === t.address) ?? null, cx);
     for (const ask of fresh) {
       this.enrich(ask.id, cx);
@@ -113,6 +115,15 @@ export class Engine {
         const text = screen?.text ?? "";
         const parsed = parseScreen(text);
         const patch = { raw: text.split("\n").slice(-40).join("\n").slice(-3000), context: parsed.context, enriched: true };
+        const tabs = wizardOn(text);
+        if (tabs) {
+          // Several questions in one dialog: the report only knows the first, so no option on the
+          // card would be safe to press. The card says so and opens the terminal.
+          Object.assign(patch, { kind: "DECISION", wizard: true, options: [], recommended: null,
+            question: `${tabs.length} questions in one dialog: ${tabs.join(" · ")}. Answer them in the terminal.` });
+          update((s) => { const a = s.asks.find((x) => x.id === id); if (a) Object.assign(a, patch); });
+          return;
+        }
         if (ask.source === "report") {
           // Keep the report's words; take the screen's numbering, question line and details when they line up.
           if (ask.options.length && parsed.options.length >= ask.options.length && ask.options.every((o, i) => parsed.options[i].label.startsWith(o.label.slice(0, 12)))) {
@@ -174,6 +185,8 @@ export class Engine {
         const { message, hasQuestion } = parseLastMessage(text, reportOf(t)?.app ?? agent?.app ?? null);
         this.debug(`${key} message ${message.length} chars, question=${hasQuestion}`);
         if (!hasQuestion || message.length < 8) return;
+        // Not questions for the person: a login prompt or an API error the agent printed.
+        if (/API Error|Please run \/login|rate limit/i.test(message)) { this.debug(`${key} skipped: error text`); return; }
         const model = normalize(await this.classify(message, { app: reportOf(t)?.app ?? agent?.app, program: agent?.program, msg: "" }, "message"));
         this.debug(`${key} model: ${JSON.stringify(model)}`);
         if (!model || !model.asks || model.confidence < 0.6) return;

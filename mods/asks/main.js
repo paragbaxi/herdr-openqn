@@ -4,14 +4,13 @@
 import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { spaces, focused, run, theme, hc, exec, nextCommand, appHome } from "herdr";
-import { readState, update, stillAsking, stillIdle, liveTerminal, age, loadConfig, DEFAULTS } from "./state.js";
+import { readState, update, stillAsking, stillIdle, liveTerminal, wizardOn, declinedOn, logAnswer, age, loadConfig } from "./state.js";
 
 // How long the panel waits for the agent to react to an answer. hc holds a paste or key
 // press until nobody has typed in that terminal for ~3 s, and a turn takes a moment to start.
 const SETTLE_MS = 8000;
 
 const KIND = { APPROVAL: "blocked", DECISION: "accent", QUESTION: "working", UNCLEAR: "dim" };
-const stamp = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 const one = (s) => (s ?? "").replace(/\s+/g, " ").trim();
 // Questions of a multi-question card; older cards stored them as plain strings.
 const questionsOf = (ask) => (ask.questions ?? []).map((q) => typeof q === "string" ? { text: q, options: [], recommended: null } : { text: q.text, options: q.options ?? [], recommended: q.recommended ?? null });
@@ -77,6 +76,17 @@ export default class Asks extends View {
 
   stale(ask) { this.set(ask.id, { state: "stale", note: "Resolved in terminal", ended_at: Date.now() }); }
 
+  // The dialog on screen is a several-question wizard: turn the card into the notice and
+  // press nothing. True when it was.
+  async wizard(ask) {
+    const r = await hc(["read", ask.address, "--json"]);
+    const tabs = r.code === 0 ? wizardOn(JSON.parse(r.stdout).text ?? "") : null;
+    if (!tabs) return false;
+    this.set(ask.id, { state: "pending", wizard: true, options: [], recommended: null, chosen: null, answer: null, error: null,
+      question: `${tabs.length} questions in one dialog: ${tabs.join(" · ")}. Answer them in the terminal.` });
+    return true;
+  }
+
   async probe(address) {
     const r = await hc(["get", address, "--json"]);
     if (r.code !== 0) return null;
@@ -106,10 +116,14 @@ export default class Asks extends View {
     this.set(ask.id, { state: "sending", answer: option.label, chosen: option, error: null, sent_turn: sentTurn, sent_at: Date.now() });
     const same = (g) => g.state === "blocked" && g.msg === ask.msg && g.turn <= sentTurn;
     this.deliver(ask, cx, async (sleep) => {
+      // The screen first, every time (also on Retry and asks.accept): a wizard's tab bar means
+      // the report's one question is not the whole dialog, and a key would answer the wrong one.
+      if (await this.wizard(ask)) return { wizard: true };
       let r = await hc(["keys", ask.address, String(option.n)]);
       if (r.code !== 0) throw new Error(one(r.stderr) || "Could not press the key");
       let g = await this.settle(ask.address, sleep, (g) => !same(g), 1500);
       if (g && same(g)) {
+        if (await this.wizard(ask)) return { wizard: true };
         r = await hc(["keys", ask.address, "enter"]);
         if (r.code !== 0) throw new Error(one(r.stderr) || "Could not press Enter");
         g = await this.settle(ask.address, sleep, (g) => !same(g));
@@ -161,35 +175,24 @@ export default class Asks extends View {
       const sleep = (ms) => new Promise((res) => cx.timer.after(ms, () => res()));
       try {
         const g = await act(sleep);
+        if (g?.wizard) return;
         if (g && g.state === "blocked" && g.msg === ask.msg) throw new Error("Not delivered: the agent did not react. Retry sends it again, or answer in the terminal.");
+        // A dialog that closed because the person said no in the terminal is not an answer.
+        const rd = await hc(["read", ask.address, "--json"]);
+        if (rd.code === 0 && declinedOn(JSON.parse(rd.stdout).text ?? "")) { this.set(ask.id, { state: "stale", note: "Declined in terminal", ended_at: Date.now(), answer: null }); return; }
         const now = Date.now();
         this.set(ask.id, { state: "delivered", answered_at: now, error: null });
-        await this.log(ask, now);
+        await logAnswer(readState().asks.find((a) => a.id === ask.id) ?? ask, this.config, now);
       } catch (e) {
         this.set(ask.id, { state: "failed", error: String(e?.message ?? e) });
       } finally { cx.notify(); }
     });
   }
 
-  // One line per answer. The default is one file per space under Herdr's config folder, so
-  // nothing lands in the agent's repo (issue #2); `{space}` is the space's name, `{repo}` the
-  // agent's folder name. A relative `log` is inside the agent's folder, `~/…` is home.
-  async log(ask, at) {
-    const slug = (s) => (s ?? "").replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "") || "space";
-    const rel = (this.config?.log ?? DEFAULTS.log).replace(/\{space\}/g, slug(ask.space_name) ).replace(/\{repo\}/g, slug((ask.cwd ?? "").split("/").pop()));
-    if (!rel) return;
-    if (!rel.startsWith("/") && !rel.startsWith("~/") && !ask.cwd) return;
-    const path = rel.startsWith("/") || rel.startsWith("~/") ? rel : `${ask.cwd}/${rel}`;
-    const answer = readState().asks.find((a) => a.id === ask.id)?.answer ?? ask.answer ?? "";
-    const repo = (ask.cwd ?? "").split("/").pop();
-    const line = `- ${stamp(new Date(at))} · ${one(ask.agent)}${repo ? ` @ ${repo}` : ""} · ${ask.kind} · ${one(ask.question)} → ${one(answer)}`;
-    try { await exec("sh", ["-c", 'case "$2" in "~/"*) p="$HOME/${2#\\~/}";; *) p="$2";; esac; d=$(dirname "$p"); mkdir -p "$d" && printf "%s\\n" "$1" >> "$p"', "asks", line, path]); } catch {}
-  }
-
   retry(ask, cx) {
     // The earlier answer may have landed after the panel gave up: never send it twice.
     const t = liveTerminal(ask.address);
-    if (t && ask.sent_turn != null && (t.turn ?? 0) > ask.sent_turn) return this.set(ask.id, { state: "delivered", answered_at: Date.now(), error: null, note: "Picked up late" });
+    if (t && ask.sent_turn != null && (t.turn ?? 0) > ask.sent_turn) { const now = Date.now(); this.set(ask.id, { state: "delivered", answered_at: now, error: null, note: "Picked up late" }); logAnswer(ask, this.config, now, "picked up late"); return; }
     if (ask.chosen?.text) return this.sendText(ask, ask.chosen.text, cx);
     if (ask.chosen) return this.answer(ask, ask.chosen, cx);
     this.set(ask.id, { state: "pending", error: null });
@@ -257,7 +260,7 @@ export default class Asks extends View {
       .child(h_flex().gap(6).items_center().flex_wrap()
         .when(failed, (el) => el.child(action(`retry-${ask.id}`, "mods/asks/send.svg", "Retry", (cx) => this.retry(ask, cx), true)))
         .when(!sending && drafted > 0, (el) => el.child(action(`send-${ask.id}`, "mods/asks/send.svg", `Send answers (${drafted}/${questions.length})`, (cx) => this.sendDrafts(ask, cx), true)))
-        .when(!sending && ask.kind !== "UNCLEAR" && ask.kind !== "APPROVAL", (el) => el.child(action(`other-${ask.id}`, "mods/asks/send.svg", this.other === ask.id ? "Cancel" : ask.options.length ? "Other answer" : "Answer", (cx) => {
+        .when(!sending && !ask.wizard && ask.kind !== "UNCLEAR" && ask.kind !== "APPROVAL", (el) => el.child(action(`other-${ask.id}`, "mods/asks/send.svg", this.other === ask.id ? "Cancel" : ask.options.length ? "Other answer" : "Answer", (cx) => {
           this.other = this.other === ask.id ? null : ask.id;
           if (this.other) this.input.focus();
           cx.notify();

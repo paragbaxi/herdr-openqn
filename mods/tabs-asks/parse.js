@@ -50,12 +50,14 @@ export const SCHEMA = JSON.stringify({
   additionalProperties: false,
 });
 
-const OPTION = /^\s*(❯\s*)?(\d{1,2})\.\s+(.*?)\s*$/;
+const OPTION = /^\s*([>❯]\s*)?(\d{1,2})\.\s+(.*?)\s*$/;
 const RULE = /^[\s─╌═━]+$/;
 
 // Numbered options on a screen, with the cursor's line and the line under each option.
 export function parseScreen(text) {
-  const lines = (text ?? "").replace(/\r/g, "").split("\n");
+  // Some agents draw the dialog inside a box ("│ > 1. Yes"), and newer Claude Code draws a bar
+  // before the question line ("│ Which colour?"): the borders come off first.
+  const lines = (text ?? "").replace(/\r/g, "").split("\n").map((l) => l.replace(/^\s*│\s?/, "").replace(/\s*│\s*$/, ""));
   // Only the dialog at the bottom: start after the last rule above the first option run.
   let options = [], cursor = null, context = "", question = "";
   for (let i = 0; i < lines.length; i++) {
@@ -159,10 +161,16 @@ export function parseClaudeMessage(text) {
   let i = start + 1;
   while (i < lines.length && /^\s{2,}\S/.test(lines[i]) && !/^\s*[⏺•·✻✢✶✽*]/.test(lines[i])) i++;
   const out = [];
+  let skipDialog = false;
   for (; i < lines.length; i++) {
     const l = lines[i];
     if (/^[✻✢✶✽*]\s.*·\s*(done|idle)/.test(l) || RULE.test(l) || /^❯/.test(l)) break;
     if (/^\s*(⎿|Searched for|Read \d|Ran \d|Listed \d|Wrote \d|Edited \d)/.test(l)) continue;
+    // A dialog the person answered or declined leaves "⏺ User declined to answer questions" and
+    // the questions under it on screen: not something the agent is asking now.
+    if (/^[⏺●]\s+User (declined|answered)/.test(l)) { skipDialog = true; continue; }
+    if (skipDialog && /^\s{2,}/.test(l)) continue;
+    skipDialog = false;
     if (/^[⏺•]\s+(Write|Read|Bash|Edit|Grep|Glob|Update|Search|Task)\(/.test(l)) continue;
     out.push(l.replace(/^[⏺•]\s+/, "").trimEnd());
   }
